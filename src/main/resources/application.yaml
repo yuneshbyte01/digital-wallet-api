@@ -30,3 +30,9 @@ app:
     secret: MYbk+WrVzA3OwivxXMWFjADMUewa4wNIvgZFtgjC/9Y=
     access-token-expiry: 900000
     refresh-token-expiry: 604800000
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

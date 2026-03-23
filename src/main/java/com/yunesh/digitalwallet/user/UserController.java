@@ -1,37 +1,48 @@
 package com.yunesh.digitalwallet.user;
 
 import com.yunesh.digitalwallet.common.ApiResponse;
-import com.yunesh.digitalwallet.exception.ResourceNotFoundException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> getMe(
             @AuthenticationPrincipal String email) {
+        return ApiResponse.success(userService.findByEmail(email));
+    }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found: " + email));
+    @PutMapping("/me")
+    public ApiResponse<UserProfileResponse> updateMe(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return ApiResponse.success(
+                userService.updateProfile(email, request),
+                "Profile updated successfully", 200);
+    }
 
-        return ApiResponse.success(new UserProfileResponse(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getRole().name(),
-                user.getStatus().name(),
-                user.getKycStatus().name(),
-                user.getCreatedAt()
-        ));
+    @PostMapping("/me/kyc")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<Void> submitKyc(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody KycRequest request) {
+        userService.submitKyc(email, request);
+        return ApiResponse.success(null, "KYC submission received", 202);
+    }
+
+    @PostMapping("/me/pin")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setPin(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody SetPinRequest request) {
+        userService.setPin(email, request);
     }
 }
