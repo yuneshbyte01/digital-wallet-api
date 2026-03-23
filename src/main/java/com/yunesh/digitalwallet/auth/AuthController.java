@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenRefreshService tokenRefreshService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -22,5 +23,19 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(authService.login(request), "Login successful", 200);
+    }
+
+    @PostMapping("/refresh")
+    public ApiResponse<LoginResponse> refresh(
+            @Valid @RequestBody TokenRefreshRequest request) {
+        return ApiResponse.success(
+                tokenRefreshService.refresh(request.refreshToken()),
+                "Token refreshed successfully", 200);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody LogoutRequest request) {
+        authService.logout(request);
     }
 }

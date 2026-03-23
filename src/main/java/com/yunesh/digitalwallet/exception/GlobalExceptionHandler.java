@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -68,6 +67,17 @@ public class GlobalExceptionHandler {
 
         log.warn("Bad credentials at {}", request.getRequestURI());
         return new ErrorResponse(401, "Unauthorized", "Invalid email or password",
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleInvalidToken(
+            InvalidTokenException ex,
+            HttpServletRequest request) {
+
+        log.warn("Invalid token at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(401, "Unauthorized", ex.getMessage(),
                 request.getRequestURI(), Instant.now());
     }
 
