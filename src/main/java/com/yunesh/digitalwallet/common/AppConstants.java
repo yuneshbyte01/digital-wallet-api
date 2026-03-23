@@ -8,7 +8,10 @@ public class AppConstants {
 
     public static class Security {
         private Security() {}
-        // filled in Phase 2 when refresh tokens are built
+
+        public static final int    MAX_PIN_ATTEMPTS = 3;
+        public static final String BEARER_PREFIX    = "Bearer ";
+        public static final String TOKEN_HEADER     = "Authorization";
     }
 
     public static class Transfer {
