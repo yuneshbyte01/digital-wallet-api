@@ -5,6 +5,9 @@ import com.yunesh.digitalwallet.exception.EmailAlreadyExistsException;
 import com.yunesh.digitalwallet.exception.ResourceNotFoundException;
 import com.yunesh.digitalwallet.user.User;
 import com.yunesh.digitalwallet.user.UserRepository;
+import com.yunesh.digitalwallet.wallet.Wallet;
+import com.yunesh.digitalwallet.wallet.WalletRepository;
+import com.yunesh.digitalwallet.wallet.WalletStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -29,6 +32,7 @@ public class AuthService implements UserDetailsService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtConfig jwtConfig;
     private final TokenRefreshService tokenRefreshService;
+    private final WalletRepository walletRepository;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -46,6 +50,14 @@ public class AuthService implements UserDetailsService {
                 .build();
 
         User saved = userRepository.save(user);
+
+        Wallet wallet = Wallet.builder()
+                .user(saved)
+                .currency("NPR")
+                .status(WalletStatus.ACTIVE)
+                .build();
+
+        walletRepository.save(wallet);
 
         return new RegisterResponse(
                 saved.getId(),
