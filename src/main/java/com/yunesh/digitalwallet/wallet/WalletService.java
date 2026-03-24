@@ -68,6 +68,22 @@ public class WalletService {
         return getWalletResponse(wallet);
     }
 
+    @Transactional
+    public WalletResponse toggleFreeze(UUID walletId) {
+        Wallet wallet = walletRepository.findById(walletId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Wallet not found: " + walletId));
+
+        if (wallet.getStatus() == WalletStatus.ACTIVE) {
+            wallet.setStatus(WalletStatus.FROZEN);
+        } else {
+            wallet.setStatus(WalletStatus.ACTIVE);
+        }
+
+        walletRepository.save(wallet);
+        return getWalletResponse(wallet);
+    }
+
     private WalletResponse getWalletResponse(Wallet wallet) {
         return new WalletResponse(
                 wallet.getId(),
