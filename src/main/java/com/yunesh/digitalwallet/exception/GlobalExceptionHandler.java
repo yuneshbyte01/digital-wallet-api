@@ -81,6 +81,39 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), Instant.now());
     }
 
+    @ExceptionHandler(DuplicateLedgerEntryException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleDuplicateLedgerEntry(
+            DuplicateLedgerEntryException ex,
+            HttpServletRequest request) {
+
+        log.warn("Duplicate ledger entry at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(409, "Conflict", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(WalletFrozenException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleWalletFrozen(
+            WalletFrozenException ex,
+            HttpServletRequest request) {
+
+        log.warn("Wallet frozen at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleInsufficientFunds(
+            InsufficientFundsException ex,
+            HttpServletRequest request) {
+
+        log.warn("Insufficient funds at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleGeneric(

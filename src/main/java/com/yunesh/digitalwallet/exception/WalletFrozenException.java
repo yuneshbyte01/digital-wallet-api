@@ -1,4 +1,8 @@
 package com.yunesh.digitalwallet.exception;
 
-public class WalletFrozenException {
+public class WalletFrozenException extends RuntimeException {
+
+    public WalletFrozenException(String message) {
+        super(message);
+    }
 }

@@ -21,7 +21,9 @@ public class AppConstants {
 
     public static class Pagination {
         private Pagination() {}
-        // filled in Phase 4 when paginated endpoints are built
+
+        public static final int DEFAULT_PAGE_SIZE = 20;
+        public static final int MAX_PAGE_SIZE     = 100;
     }
 
     public static class RateLimit {

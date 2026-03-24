@@ -1,4 +1,8 @@
-package com.yunesh.digitalwallet.ledger;
+package com.yunesh.digitalwallet.exception;
 
-public class DuplicateLedgerEntryException {
+public class DuplicateLedgerEntryException extends RuntimeException {
+
+    public DuplicateLedgerEntryException(String message) {
+        super(message);
+    }
 }
