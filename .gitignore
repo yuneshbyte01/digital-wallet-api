@@ -33,4 +33,7 @@ build/
 .vscode/
 
 .env
+.claude/settings.local.json
+statements/
+CLAUDE.md
 
