@@ -16,7 +16,10 @@ public class AppConstants {
 
     public static class Transfer {
         private Transfer() {}
-        // filled in Phase 4 when transfer engine is built
+
+        public static final BigDecimal DAILY_LIMIT_NPR  = new BigDecimal("100000.00");
+        public static final BigDecimal SINGLE_LIMIT_NPR = new BigDecimal("25000.00");
+        public static final BigDecimal MIN_AMOUNT       = new BigDecimal("10.00");
     }
 
     public static class Pagination {

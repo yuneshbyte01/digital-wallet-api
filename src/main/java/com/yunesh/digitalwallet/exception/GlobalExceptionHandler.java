@@ -5,6 +5,7 @@ import com.yunesh.digitalwallet.common.ValidationErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -111,6 +112,62 @@ public class GlobalExceptionHandler {
 
         log.warn("Insufficient funds at {}: {}", request.getRequestURI(), ex.getMessage());
         return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(DuplicateTransferException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleDuplicateTransfer(
+            DuplicateTransferException ex,
+            HttpServletRequest request) {
+
+        log.warn("Duplicate transfer at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(409, "Conflict", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(SelfTransferException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleSelfTransfer(
+            SelfTransferException ex,
+            HttpServletRequest request) {
+
+        log.warn("Self transfer attempt at {}", request.getRequestURI());
+        return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    @ResponseStatus(HttpStatus.LOCKED)
+    public ErrorResponse handleAccountLocked(
+            AccountLockedException ex,
+            HttpServletRequest request) {
+
+        log.warn("Account locked at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(423, "Locked", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(DailyLimitExceededException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleDailyLimit(
+            DailyLimitExceededException ex,
+            HttpServletRequest request) {
+
+        log.warn("Daily limit exceeded at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleOptimisticLock(
+            OptimisticLockingFailureException ex,
+            HttpServletRequest request) {
+
+        log.warn("Optimistic lock failure at {}", request.getRequestURI());
+        return new ErrorResponse(409, "Conflict",
+                "Transaction conflict — please retry",
                 request.getRequestURI(), Instant.now());
     }
 

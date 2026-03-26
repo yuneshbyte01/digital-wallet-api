@@ -38,17 +38,7 @@ public class LedgerService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Credit wallet not found: " + creditWalletId));
 
-        // debit entry
-        LedgerEntry debitEntry = LedgerEntry.builder()
-                .idempotencyKey(UUID.randomUUID())
-                .debitWallet(debitWallet)
-                .creditWallet(creditWallet)
-                .amount(amount)
-                .entryType(entryType)
-                .build();
-
-        // credit entry
-        LedgerEntry creditEntry = LedgerEntry.builder()
+        LedgerEntry entry = LedgerEntry.builder()
                 .idempotencyKey(idempotencyKey)
                 .debitWallet(debitWallet)
                 .creditWallet(creditWallet)
@@ -56,7 +46,6 @@ public class LedgerService {
                 .entryType(entryType)
                 .build();
 
-        ledgerRepository.save(debitEntry);
-        ledgerRepository.save(creditEntry);
+        ledgerRepository.save(entry);
     }
 }
