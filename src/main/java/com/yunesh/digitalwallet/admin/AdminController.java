@@ -1,6 +1,8 @@
 package com.yunesh.digitalwallet.admin;
 
 import com.yunesh.digitalwallet.common.ApiResponse;
+import com.yunesh.digitalwallet.statement.StatementResponse;
+import com.yunesh.digitalwallet.statement.StatementService;
 import com.yunesh.digitalwallet.transfer.TransferResponse;
 import com.yunesh.digitalwallet.transfer.TransferService;
 import com.yunesh.digitalwallet.user.UserProfileResponse;
@@ -12,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +25,7 @@ public class AdminController {
     private final WalletService walletService;
     private final TransferService transferService;
     private final UserService userService;
+    private final StatementService statementService;
 
     @PutMapping("/wallets/{walletId}/freeze")
     public ApiResponse<WalletResponse> toggleWalletFreeze(
@@ -58,5 +62,12 @@ public class AdminController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.success(userService.getAllUsers(page, size));
+    }
+
+    @GetMapping("/statements/{userId}")
+    public ApiResponse<List<StatementResponse>> getUserStatements(
+            @PathVariable UUID userId) {
+        return ApiResponse.success(
+                statementService.getUserStatements(userId));
     }
 }
