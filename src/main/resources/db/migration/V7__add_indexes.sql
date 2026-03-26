@@ -1,9 +1,20 @@
-CREATE INDEX IF NOT EXISTS idx_ledger_debit_wallet_id ON ledger_entries(debit_wallet_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_credit_wallet_id ON ledger_entries(credit_wallet_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_idempotency_key ON ledger_entries(idempotency_key);
-CREATE INDEX IF NOT EXISTS idx_transfers_sender_wallet_id ON transfers(sender_wallet_id);
-CREATE INDEX IF NOT EXISTS idx_transfers_idempotency_key ON transfers(idempotency_key);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_ledger_debit_wallet_id
+    ON ledger_entries(debit_wallet_id);
+
+CREATE INDEX IF NOT EXISTS idx_ledger_credit_wallet_id
+    ON ledger_entries(credit_wallet_id);
+
+CREATE INDEX IF NOT EXISTS idx_ledger_idempotency_key
+    ON ledger_entries(idempotency_key);
+
+CREATE INDEX IF NOT EXISTS idx_transfers_sender_wallet_id
+    ON transfers(sender_wallet_id);
+
+CREATE INDEX IF NOT EXISTS idx_transfers_idempotency_key
+    ON transfers(idempotency_key);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id
+    ON audit_logs(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+    ON audit_logs(created_at);
