@@ -1,5 +1,7 @@
 package com.yunesh.digitalwallet.transfer;
 
+import com.yunesh.digitalwallet.audit.AuditAction;
+import com.yunesh.digitalwallet.audit.AuditService;
 import com.yunesh.digitalwallet.common.AppConstants;
 import com.yunesh.digitalwallet.exception.*;
 import com.yunesh.digitalwallet.ledger.LedgerEntryType;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -30,6 +33,7 @@ public class TransferService {
     private final TransferLimitService transferLimitService;
     private final TransferMapper transferMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Transactional
     public TransferResponse executeTransfer(String senderEmail,
@@ -65,6 +69,8 @@ public class TransferService {
 
         // Step 2 — self-transfer guard
         if (senderWallet.getId().equals(receiverWallet.getId())) {
+            auditService.logAction(AuditAction.TRANSFER_SELF_REJECTED, sender.getId(), null, null,
+                    Map.of("idempotencyKey", request.idempotencyKey().toString()));
             throw new SelfTransferException(
                     "Cannot transfer to your own wallet");
         }
@@ -95,6 +101,11 @@ public class TransferService {
             }
 
             userRepository.save(sender);
+
+            if (sender.getStatus() == AccountStatus.LOCKED) {
+                auditService.logAction(AuditAction.ACCOUNT_LOCKED, sender.getId(), null, null,
+                        Map.of("reason", "too many failed PIN attempts"));
+            }
 
             throw new AccountLockedException(
                     sender.getStatus() == AccountStatus.LOCKED
@@ -146,6 +157,11 @@ public class TransferService {
         transfer.setStatus(TransferStatus.COMPLETED);
         transfer.setCompletedAt(Instant.now());
         transferRepository.save(transfer);
+
+        auditService.logAction(AuditAction.TRANSFER_COMPLETED, sender.getId(), null, null,
+                Map.of("transferId", transfer.getId().toString(),
+                        "amount", request.amount().toPlainString(),
+                        "receiverPhone", request.receiverPhone()));
 
         return transferMapper.toResponse(transfer);
     }

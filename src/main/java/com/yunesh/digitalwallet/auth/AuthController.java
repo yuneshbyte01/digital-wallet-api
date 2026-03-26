@@ -1,6 +1,7 @@
 package com.yunesh.digitalwallet.auth;
 
 import com.yunesh.digitalwallet.common.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,8 +22,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.success(authService.login(request), "Login successful", 200);
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request,
+                                            HttpServletRequest httpRequest) {
+        String ipAddress = httpRequest.getRemoteAddr();
+        String userAgent = httpRequest.getHeader("User-Agent");
+        return ApiResponse.success(
+                authService.login(request, ipAddress, userAgent),
+                "Login successful", 200);
     }
 
     @PostMapping("/refresh")

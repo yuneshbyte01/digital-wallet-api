@@ -1,5 +1,7 @@
 package com.yunesh.digitalwallet.auth;
 
+import com.yunesh.digitalwallet.audit.AuditAction;
+import com.yunesh.digitalwallet.audit.AuditService;
 import com.yunesh.digitalwallet.config.JwtConfig;
 import com.yunesh.digitalwallet.exception.EmailAlreadyExistsException;
 import com.yunesh.digitalwallet.exception.ResourceNotFoundException;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -33,6 +36,7 @@ public class AuthService implements UserDetailsService {
     private final JwtConfig jwtConfig;
     private final TokenRefreshService tokenRefreshService;
     private final WalletRepository walletRepository;
+    private final AuditService auditService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -70,12 +74,13 @@ public class AuthService implements UserDetailsService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException(
-                        "Invalid email or password"));
+    public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
+        User user = userRepository.findByEmail(request.email()).orElse(null);
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            UUID userId = user != null ? user.getId() : null;
+            auditService.logAction(AuditAction.USER_LOGIN_FAILED, userId, ipAddress, userAgent,
+                    Map.of("email", request.email()));
             throw new BadCredentialsException("Invalid email or password");
         }
 
@@ -93,6 +98,8 @@ public class AuthService implements UserDetailsService {
                 .build();
 
         refreshTokenRepository.save(refreshToken);
+
+        auditService.logAction(AuditAction.USER_LOGIN, user.getId(), ipAddress, userAgent, null);
 
         return new LoginResponse(accessToken, rawRefreshToken,
                 user.getId(), user.getEmail(), user.getRole().name());
