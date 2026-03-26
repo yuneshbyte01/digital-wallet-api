@@ -162,4 +162,30 @@ public class TransferService {
                         "Wallet not found"))
                 .getId();
     }
+
+    @Transactional
+    public TransferResponse reverseTransfer(UUID transferId) {
+        Transfer transfer = transferRepository.findById(transferId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Transfer not found: " + transferId));
+
+        if (transfer.getStatus() != TransferStatus.COMPLETED) {
+            throw new IllegalStateException(
+                    "Only COMPLETED transfers can be reversed");
+        }
+
+        // reversal — swap debit and credit
+        ledgerService.createEntryPair(
+                transfer.getReceiverWallet().getId(),
+                transfer.getSenderWallet().getId(),
+                transfer.getAmount(),
+                LedgerEntryType.REVERSAL,
+                UUID.randomUUID()
+        );
+
+        transfer.setStatus(TransferStatus.REVERSED);
+        transferRepository.save(transfer);
+
+        return transferMapper.toResponse(transfer);
+    }
 }
