@@ -32,4 +32,10 @@ public class AuditController {
 
         return ApiResponse.success(logs);
     }
+
+    @GetMapping("/flagged-accounts")
+    public ApiResponse<String> getFlaggedAccounts() {
+        return ApiResponse.success(null,
+                "Flagged accounts are logged by FraudFlagJob nightly", 200);
+    }
 }

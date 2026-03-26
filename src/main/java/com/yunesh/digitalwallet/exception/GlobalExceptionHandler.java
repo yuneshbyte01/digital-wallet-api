@@ -3,6 +3,7 @@ package com.yunesh.digitalwallet.exception;
 import com.yunesh.digitalwallet.common.ErrorResponse;
 import com.yunesh.digitalwallet.common.ValidationErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -168,6 +169,19 @@ public class GlobalExceptionHandler {
         log.warn("Optimistic lock failure at {}", request.getRequestURI());
         return new ErrorResponse(409, "Conflict",
                 "Transaction conflict — please retry",
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ErrorResponse handleRateLimit(
+            RateLimitExceededException ex,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        response.setHeader("Retry-After", "60");
+        log.warn("Rate limit exceeded at {}", request.getRequestURI());
+        return new ErrorResponse(429, "Too Many Requests", ex.getMessage(),
                 request.getRequestURI(), Instant.now());
     }
 

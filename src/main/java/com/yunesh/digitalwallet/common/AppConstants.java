@@ -31,6 +31,10 @@ public class AppConstants {
 
     public static class RateLimit {
         private RateLimit() {}
-        // filled in Phase 4 when Bucket4j is added
+
+        public static final int TRANSFER_CAPACITY       = 5;
+        public static final int LOGIN_CAPACITY          = 10;
+        public static final int TRANSFER_REFILL_SECONDS = 60;
+        public static final int LOGIN_REFILL_SECONDS    = 60;
     }
 }

@@ -2,6 +2,7 @@ package com.yunesh.digitalwallet.config;
 
 import com.yunesh.digitalwallet.auth.AuthService;
 import com.yunesh.digitalwallet.auth.JwtAuthenticationFilter;
+import com.yunesh.digitalwallet.ratelimit.RateLimitFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,11 +31,14 @@ public class SecurityConfig {
 
     private final AuthService authService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     public SecurityConfig(@Lazy AuthService authService,
-                          JwtAuthenticationFilter jwtAuthenticationFilter) {
+                          JwtAuthenticationFilter jwtAuthenticationFilter,
+                          RateLimitFilter rateLimitFilter) {
         this.authService = authService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -73,6 +77,9 @@ public class SecurityConfig {
                                         .maxAgeInSeconds(31536000)))
 
                 .addFilterBefore(httpsEnforcementFilter(),
+                        UsernamePasswordAuthenticationFilter.class)
+
+                .addFilterBefore(rateLimitFilter,
                         UsernamePasswordAuthenticationFilter.class)
 
                 .addFilterBefore(jwtAuthenticationFilter,
