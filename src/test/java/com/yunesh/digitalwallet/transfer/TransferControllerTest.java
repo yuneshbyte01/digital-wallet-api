@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.yunesh.digitalwallet.AbstractIntegrationTest;
 import com.yunesh.digitalwallet.auth.LoginRequest;
 import com.yunesh.digitalwallet.auth.RegisterRequest;
+import com.yunesh.digitalwallet.user.Gender;
 import com.yunesh.digitalwallet.user.SetPinRequest;
 import com.yunesh.digitalwallet.wallet.DepositRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,14 +29,17 @@ class TransferControllerTest extends AbstractIntegrationTest {
     void setUp() throws Exception {
         String senderEmail = "sender+" + UUID.randomUUID() + "@example.com";
         String receiverEmail = "receiver+" + UUID.randomUUID() + "@example.com";
-        senderPhone = "+97798" + randomDigits();
-        receiverPhone = "+97798" + randomDigits();
+        senderPhone = "98" + randomDigits();
+        receiverPhone = "98" + randomDigits();
+        String senderPin = "1234";
+        String receiverPin = "5678";
 
         mockMvc.perform(
                         post(api("/auth/register"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(
-                                        new RegisterRequest("Sender", senderEmail, "password123", senderPhone)
+                                        new RegisterRequest("Sender", senderEmail, "password123",senderPhone, senderPin,
+                                                Gender.OTHER)
                                 ))
                 )
                 .andExpect(status().isCreated());
@@ -44,7 +48,8 @@ class TransferControllerTest extends AbstractIntegrationTest {
                         post(api("/auth/register"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(
-                                        new RegisterRequest("Receiver", receiverEmail, "password123", receiverPhone)
+                                        new RegisterRequest("Receiver", receiverEmail, "password123", receiverPhone,
+                                                receiverPin, Gender.OTHER)
                                 ))
                 )
                 .andExpect(status().isCreated());
@@ -61,7 +66,7 @@ class TransferControllerTest extends AbstractIntegrationTest {
                         post(api("/auth/login"))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(
-                                        new LoginRequest(senderEmail, "password123")
+                                        new LoginRequest(senderEmail, "password123", "1234")
                                 ))
                 )
                 .andExpect(status().isOk())

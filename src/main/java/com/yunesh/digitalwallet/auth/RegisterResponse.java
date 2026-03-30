@@ -7,6 +7,7 @@ public record RegisterResponse(
         String fullName,
         String email,
         String phone,
+        String gender,
         String role,
         String kycStatus
 ) {}

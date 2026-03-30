@@ -1,10 +1,15 @@
 package com.yunesh.digitalwallet.audit;
 
 public enum AuditAction {
+    USER_REGISTERED,
     USER_LOGIN,
     USER_LOGIN_FAILED,
+    TRANSFER_INITIATED,
     TRANSFER_COMPLETED,
+    TRANSFER_FAILED,
     TRANSFER_SELF_REJECTED,
+    PIN_CHANGED,
     ACCOUNT_LOCKED,
+    WALLET_FROZEN,
     TOKEN_REVOKED
 }

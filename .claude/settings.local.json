@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//mnt/d/**)",
-      "Bash(./mvnw test:*)",
-      "Bash(./mvnw clean:*)"
-    ]
-  }
-}

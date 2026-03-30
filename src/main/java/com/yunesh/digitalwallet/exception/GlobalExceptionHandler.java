@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         log.warn("Bad credentials at {}", request.getRequestURI());
-        return new ErrorResponse(401, "Unauthorized", "Invalid email or password",
+        return new ErrorResponse(401, "Unauthorized", ex.getMessage(),
                 request.getRequestURI(), Instant.now());
     }
 
@@ -182,6 +182,17 @@ public class GlobalExceptionHandler {
         response.setHeader("Retry-After", "60");
         log.warn("Rate limit exceeded at {}", request.getRequestURI());
         return new ErrorResponse(429, "Too Many Requests", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
+    @ExceptionHandler(PhoneAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handlePhoneExists(
+            PhoneAlreadyExistsException ex,
+            HttpServletRequest request) {
+
+        log.warn("Phone conflict at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(409, "Conflict", ex.getMessage(),
                 request.getRequestURI(), Instant.now());
     }
 

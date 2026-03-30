@@ -2,6 +2,7 @@ package com.yunesh.digitalwallet.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yunesh.digitalwallet.AbstractIntegrationTest;
+import com.yunesh.digitalwallet.user.Gender;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
@@ -22,7 +23,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 "Test User",
                 email,
                 "password123",
-                "+9779812345678"
+                "+9779812345678",
+                "1234",
+                Gender.OTHER
         );
 
         MvcResult result = mockMvc.perform(
@@ -47,7 +50,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 "Test User",
                 email,
                 "password123",
-                "+9779812345679"
+                "+9779812345679",
+                "5678",
+                Gender.OTHER
         );
 
         mockMvc.perform(
@@ -77,7 +82,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 "Login User",
                 email,
                 "password123",
-                "+9779812345670"
+                "+9779812345670",
+                "9876",
+                Gender.OTHER
         );
 
         mockMvc.perform(
@@ -87,7 +94,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 )
                 .andExpect(status().isCreated());
 
-        LoginRequest loginRequest = new LoginRequest(email, "password123");
+        LoginRequest loginRequest = new LoginRequest(email, "password123", "1234");
 
         MvcResult result = mockMvc.perform(
                         post(api("/auth/login"))
@@ -104,7 +111,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void login_invalidCredentials_returns401() throws Exception {
-        LoginRequest loginRequest = new LoginRequest("nonexistent@example.com", "wrong password");
+        LoginRequest loginRequest = new LoginRequest("nonexistent@example.com", "wrong password", "1234");
 
         MvcResult result = mockMvc.perform(
                         post(api("/auth/login"))
@@ -126,7 +133,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 "Logout User",
                 email,
                 "password123",
-                "+9779812345671"
+                "+9779812345671",
+                "4567",
+                Gender.OTHER
         );
 
         mockMvc.perform(
@@ -136,7 +145,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 )
                 .andExpect(status().isCreated());
 
-        LoginRequest loginRequest = new LoginRequest(email, "password123");
+        LoginRequest loginRequest = new LoginRequest(email, "password123", "1234");
 
         MvcResult loginResult = mockMvc.perform(
                         post(api("/auth/login"))

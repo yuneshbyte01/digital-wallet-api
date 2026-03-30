@@ -22,18 +22,25 @@ public class AuditService {
                           UUID userId,
                           String ipAddress,
                           String userAgent,
-                          Map<String, Object> metadata) {
+                          String metadata) {
         try {
-            AuditLog entry = AuditLog.builder()
-                    .action(action)
+            Map<String, Object> metadataMap = null;
+            if (metadata != null) {
+                metadataMap = Map.of("info", metadata);
+            }
+
+            AuditLog auditLog = AuditLog.builder()
                     .userId(userId)
+                    .action(action)
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
-                    .metadata(metadata)
+                    .metadata(metadataMap)
                     .build();
-            auditRepository.save(entry);
-        } catch (Exception ex) {
-            log.error("Failed to write audit log [action={}]: {}", action, ex.getMessage());
+
+            auditRepository.save(auditLog);
+        } catch (Exception e) {
+            log.error("Failed to save audit log for action {}: {}",
+                    action, e.getMessage());
         }
     }
 }

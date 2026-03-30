@@ -1,6 +1,7 @@
 package com.yunesh.digitalwallet.user;
 
 import com.yunesh.digitalwallet.common.AppConstants;
+import com.yunesh.digitalwallet.config.EncoderConfig;
 import com.yunesh.digitalwallet.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,7 +19,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final EncoderConfig encoderConfig;
 
     @Transactional(readOnly = true)
     public UserProfileResponse findByEmail(String email) {
@@ -60,7 +61,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User not found: " + email));
 
-        user.setPinHash(passwordEncoder.encode(request.pin()));
+        user.setPinHash(encoderConfig.getPinEncoder().encode(request.pin()));
 
         userRepository.save(user);
     }

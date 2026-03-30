@@ -23,16 +23,20 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, unique = true, length = 10)
     private String phone;
 
-    @Column(name = "password_hash", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
+
+    @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "pin_hash")
+    @Column(name = "pin_hash", nullable = false, length = 255)
     private String pinHash;
 
     @Column(name = "pin_attempts", nullable = false)

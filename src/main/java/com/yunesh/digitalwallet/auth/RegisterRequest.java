@@ -1,5 +1,7 @@
 package com.yunesh.digitalwallet.auth;
 
+import com.yunesh.digitalwallet.user.Gender;
+import com.yunesh.digitalwallet.user.TrustedEmail;
 import jakarta.validation.constraints.*;
 
 public record RegisterRequest(
@@ -9,7 +11,7 @@ public record RegisterRequest(
         String fullName,
 
         @NotBlank(message = "Email is required")
-        @Email(message = "Email must be valid")
+        @TrustedEmail
         String email,
 
         @NotBlank(message = "Password is required")
@@ -17,6 +19,13 @@ public record RegisterRequest(
         String password,
 
         @NotBlank(message = "Phone is required")
-        @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must be valid")
-        String phone
+        @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be exactly 10 digits")
+        String phone,
+
+        @NotBlank(message = "PIN is required")
+        @Pattern(regexp = "^[0-9]{4}$", message = "PIN must be exactly 4 digits")
+        String pin,
+
+        @NotNull(message = "Gender is required")
+        Gender gender
 ) {}

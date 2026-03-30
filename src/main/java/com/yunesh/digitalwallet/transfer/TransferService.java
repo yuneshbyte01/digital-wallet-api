@@ -3,6 +3,7 @@ package com.yunesh.digitalwallet.transfer;
 import com.yunesh.digitalwallet.audit.AuditAction;
 import com.yunesh.digitalwallet.audit.AuditService;
 import com.yunesh.digitalwallet.common.AppConstants;
+import com.yunesh.digitalwallet.config.EncoderConfig;
 import com.yunesh.digitalwallet.exception.*;
 import com.yunesh.digitalwallet.ledger.LedgerEntryType;
 import com.yunesh.digitalwallet.ledger.LedgerService;
@@ -16,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +35,7 @@ public class TransferService {
     private final LedgerService ledgerService;
     private final TransferLimitService transferLimitService;
     private final TransferMapper transferMapper;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final EncoderConfig encoderConfig;
     private final AuditService auditService;
 
     @Transactional
@@ -73,7 +73,7 @@ public class TransferService {
         // Step 2 — self-transfer guard
         if (senderWallet.getId().equals(receiverWallet.getId())) {
             auditService.logAction(AuditAction.TRANSFER_SELF_REJECTED, sender.getId(), null, null,
-                    Map.of("idempotencyKey", request.idempotencyKey().toString()));
+                    Map.of("idempotencyKey", request.idempotencyKey().toString()).toString());
             throw new SelfTransferException(
                     "Cannot transfer to your own wallet");
         }
@@ -95,7 +95,7 @@ public class TransferService {
                     "PIN not set. Please set your PIN first.");
         }
 
-        if (!passwordEncoder.matches(request.pin(), sender.getPinHash())) {
+        if (!encoderConfig.getPinEncoder().matches(request.pin(), sender.getPinHash())) {
             sender.setPinAttempts(sender.getPinAttempts() + 1);
 
             if (sender.getPinAttempts()
@@ -107,7 +107,7 @@ public class TransferService {
 
             if (sender.getStatus() == AccountStatus.LOCKED) {
                 auditService.logAction(AuditAction.ACCOUNT_LOCKED, sender.getId(), null, null,
-                        Map.of("reason", "too many failed PIN attempts"));
+                        Map.of("reason", "too many failed PIN attempts").toString());
             }
 
             throw new AccountLockedException(
@@ -164,7 +164,7 @@ public class TransferService {
         auditService.logAction(AuditAction.TRANSFER_COMPLETED, sender.getId(), null, null,
                 Map.of("transferId", transfer.getId().toString(),
                         "amount", request.amount().toPlainString(),
-                        "receiverPhone", request.receiverPhone()));
+                        "receiverPhone", request.receiverPhone()).toString());
 
         return transferMapper.toResponse(transfer);
     }

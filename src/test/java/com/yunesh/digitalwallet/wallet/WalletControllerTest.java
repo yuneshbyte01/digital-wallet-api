@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.yunesh.digitalwallet.AbstractIntegrationTest;
 import com.yunesh.digitalwallet.auth.LoginRequest;
 import com.yunesh.digitalwallet.auth.RegisterRequest;
+import com.yunesh.digitalwallet.user.Gender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -30,7 +31,9 @@ class WalletControllerTest extends AbstractIntegrationTest {
                 "Wallet User",
                 email,
                 "password123",
-                phone
+                phone,
+                "1234",
+                Gender.OTHER
         );
 
         mockMvc.perform(
@@ -48,7 +51,7 @@ class WalletControllerTest extends AbstractIntegrationTest {
                 ON CONFLICT DO NOTHING
                 """, email);
 
-        LoginRequest loginRequest = new LoginRequest(email, "password123");
+        LoginRequest loginRequest = new LoginRequest(email, "password123", "1234");
 
         MvcResult loginResult = mockMvc.perform(
                         post(api("/auth/login"))
