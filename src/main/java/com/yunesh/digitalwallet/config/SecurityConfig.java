@@ -88,7 +88,8 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
 
                 .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/api/v1/auth/**").permitAll()
+                        auth.requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                                .requestMatchers("/api/v1/auth/**").permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",
                                         "/swagger-ui.html",

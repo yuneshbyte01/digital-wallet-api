@@ -70,4 +70,18 @@ public class AdminController {
         return ApiResponse.success(
                 statementService.getUserStatements(userId));
     }
+
+    @GetMapping("/wallets")
+    public ApiResponse<Page<WalletResponse>> getAllWallets(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(walletService.getAllWallets(page, size));
+    }
+
+    @GetMapping("/transfers")
+    public ApiResponse<Page<TransferResponse>> getAllTransfers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(transferService.getAllTransfers(page, size));
+    }
 }

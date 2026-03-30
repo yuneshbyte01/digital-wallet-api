@@ -13,6 +13,9 @@ import com.yunesh.digitalwallet.wallet.Wallet;
 import com.yunesh.digitalwallet.wallet.WalletRepository;
 import com.yunesh.digitalwallet.wallet.WalletStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -203,5 +206,14 @@ public class TransferService {
         transferRepository.save(transfer);
 
         return transferMapper.toResponse(transfer);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TransferResponse> getAllTransfers(int page, int size) {
+        return transferRepository.findAll(
+                       PageRequest.of(
+                                page, size,
+                                Sort.by("createdAt").descending()))
+                .map(transferMapper::toResponse);
     }
 }

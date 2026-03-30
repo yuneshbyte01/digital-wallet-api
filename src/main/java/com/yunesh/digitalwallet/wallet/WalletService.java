@@ -6,6 +6,8 @@ import com.yunesh.digitalwallet.ledger.LedgerService;
 import com.yunesh.digitalwallet.user.User;
 import com.yunesh.digitalwallet.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +84,13 @@ public class WalletService {
 
         walletRepository.save(wallet);
         return getWalletResponse(wallet);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WalletResponse> getAllWallets(int page, int size) {
+        return walletRepository.findAll(
+                        PageRequest.of(page, size))
+                .map(this::getWalletResponse);
     }
 
     private WalletResponse getWalletResponse(Wallet wallet) {
