@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,8 +47,6 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User not found: " + email));
 
-        user.setKycDocType(request.docType());
-        user.setKycDocNumber(request.docNumber());
         user.setKycStatus(KycStatus.PENDING);
 
         userRepository.save(user);
@@ -74,7 +71,7 @@ public class UserService {
 
         if (user.getStatus() == AccountStatus.LOCKED) {
             user.setStatus(AccountStatus.ACTIVE);
-            user.setPinAttempts(0);
+            user.setFailedLoginAttempts(0);
         } else {
             user.setStatus(AccountStatus.LOCKED);
         }

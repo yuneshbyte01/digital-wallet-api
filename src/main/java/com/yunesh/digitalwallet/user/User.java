@@ -39,15 +39,14 @@ public class User {
     @Column(name = "pin_hash", nullable = false, length = 255)
     private String pinHash;
 
-    @Column(name = "pin_attempts", nullable = false)
-    private int pinAttempts;
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "kyc_doc_type", length = 50)
-    private KycDocumentType kycDocType;
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
 
-    @Column(name = "kyc_doc_number", length = 100)
-    private String kycDocNumber;
+    @Column(name = "account_locked_until")
+    private Instant accountLockedUntil;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false, length = 20)
@@ -71,7 +70,7 @@ public class User {
     protected void onCreate() {
         createdAt = Instant.now();
         updatedAt = Instant.now();
-        if (kycStatus == null) kycStatus = KycStatus.PENDING;
+        if (kycStatus == null) kycStatus = KycStatus.NOT_SUBMITTED;
         if (role == null) role = UserRole.USER;
         if (status == null) status = AccountStatus.ACTIVE;
     }

@@ -25,8 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -58,10 +58,12 @@ public class AuthService implements UserDetailsService {
         User user = User.builder()
                 .fullName(request.fullName())
                 .email(request.email())
-                .passwordHash(encoderConfig.getPasswordEncoder().encode(request.password()))
+                .passwordHash(encoderConfig.getPasswordEncoder()
+                        .encode(request.password()))
                 .phone(request.phone())
                 .gender(request.gender())
-                .pinHash(encoderConfig.getPinEncoder().encode(request.pin()))
+                .pinHash(encoderConfig.getPinEncoder()
+                        .encode(request.pin()))
                 .build();
 
         User saved = userRepository.save(user);
@@ -77,10 +79,7 @@ public class AuthService implements UserDetailsService {
         auditService.logAction(
                 AuditAction.USER_REGISTERED,
                 saved.getId(),
-                null,
-                null,
-                Map.of("email", saved.getEmail()).toString()
-        );
+                null, null, null);
 
         return authMapper.toRegisterResponse(saved);
     }
@@ -89,104 +88,88 @@ public class AuthService implements UserDetailsService {
             BadCredentialsException.class,
             AccountLockedException.class
     })
-    public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
+    public LoginResponse login(LoginRequest request,
+                               String ipAddress,
+                               String userAgent) {
+
         String identifier = request.identifier();
         boolean isEmail = identifier.contains("@");
-
         User user;
 
         if (isEmail) {
             if (request.password() == null || request.password().isBlank()) {
-                throw new BadCredentialsException("Password is required for email login");
+                throw new BadCredentialsException(
+                        "Password is required for email login");
             }
 
             user = userRepository.findByEmail(identifier).orElse(null);
 
             if (user == null) {
-                auditService.logAction(
-                        AuditAction.USER_LOGIN_FAILED,
-                        null,
-                        ipAddress,
-                        userAgent,
-                        "{\"identifier\":\"" + identifier + "\"}"
-                );
+                auditService.logAction(AuditAction.USER_LOGIN_FAILED,
+                        null, ipAddress, userAgent,
+                        "{\"identifier\":\"" + identifier + "\"}");
                 throw new BadCredentialsException("Invalid email or password");
             }
 
-            if (user.getStatus() == AccountStatus.LOCKED) {
-                throw new AccountLockedException("Account is locked");
-            }
+            checkAndHandleLock(user);
 
             if (!encoderConfig.getPasswordEncoder().matches(
                     request.password(), user.getPasswordHash())) {
-
-                updateFailedLoginAttempts(ipAddress, userAgent, identifier, user);
-
-                if (user.getStatus() == AccountStatus.LOCKED) {
-                    throw new AccountLockedException(
-                            "Account locked due to too many failed login attempts"
-                    );
-                }
-
+                handleFailedAttempt(user, ipAddress, userAgent, identifier);
                 throw new BadCredentialsException(
-                        "Invalid email or password. Attempts remaining: "
-                                + (AppConstants.Security.MAX_PIN_ATTEMPTS - user.getPinAttempts())
-                );
+                        user.getStatus() == AccountStatus.LOCKED
+                                ? "Account locked for "
+                                + AppConstants.Security.LOCK_DURATION_MINUTES
+                                + " minutes due to too many failed attempts"
+                                : "Invalid email or password. Attempts remaining: "
+                                + (AppConstants.Security.MAX_PIN_ATTEMPTS
+                                - user.getFailedLoginAttempts()));
             }
-
-            resetAttemptsIfNeeded(user);
 
         } else {
             if (request.pin() == null || request.pin().isBlank()) {
-                throw new BadCredentialsException("PIN is required for phone login");
+                throw new BadCredentialsException(
+                        "PIN is required for phone login");
             }
 
             user = userRepository.findByPhone(identifier).orElse(null);
 
             if (user == null) {
-                auditService.logAction(
-                        AuditAction.USER_LOGIN_FAILED,
-                        null,
-                        ipAddress,
-                        userAgent,
-                        "{\"identifier\":\"" + identifier + "\"}"
-                );
+                auditService.logAction(AuditAction.USER_LOGIN_FAILED,
+                        null, ipAddress, userAgent,
+                        "{\"identifier\":\"" + identifier + "\"}");
                 throw new BadCredentialsException("Invalid phone or PIN");
             }
 
-            if (user.getStatus() == AccountStatus.LOCKED) {
-                throw new AccountLockedException("Account is locked");
-            }
+            checkAndHandleLock(user);
 
             if (user.getPinHash() == null) {
-                throw new BadCredentialsException("PIN not set for this account");
+                throw new BadCredentialsException(
+                        "PIN not set for this account");
             }
 
             if (!encoderConfig.getPinEncoder().matches(
                     request.pin(), user.getPinHash())) {
-
-                updateFailedLoginAttempts(ipAddress, userAgent, identifier, user);
-
-                if (user.getStatus() == AccountStatus.LOCKED) {
-                    throw new AccountLockedException(
-                            "Account locked due to too many failed login attempts"
-                    );
-                }
-
+                handleFailedAttempt(user, ipAddress, userAgent, identifier);
                 throw new BadCredentialsException(
-                        "Invalid phone or PIN. Attempts remaining: "
-                                + (AppConstants.Security.MAX_PIN_ATTEMPTS - user.getPinAttempts())
-                );
+                        user.getStatus() == AccountStatus.LOCKED
+                                ? "Account locked for "
+                                + AppConstants.Security.LOCK_DURATION_MINUTES
+                                + " minutes due to too many failed attempts"
+                                : "Invalid phone or PIN. Attempts remaining: "
+                                + (AppConstants.Security.MAX_PIN_ATTEMPTS
+                                - user.getFailedLoginAttempts()));
             }
-
-            resetAttemptsIfNeeded(user);
         }
 
+        // successful login — reset attempts and update lastLoginAt
+        user.setFailedLoginAttempts(0);
+        user.setAccountLockedUntil(null);
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
+
         String accessToken = jwtService.generateAccessToken(
-                user.getId(),
-                user.getEmail(),
-                user.getRole().name()
-        );
+                user.getId(), user.getEmail(), user.getRole().name());
 
         String rawRefreshToken = UUID.randomUUID().toString();
         String tokenHash = TokenRefreshService.hashToken(rawRefreshToken);
@@ -194,55 +177,17 @@ public class AuthService implements UserDetailsService {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(tokenHash)
-                .expiresAt(Instant.now().plusMillis(jwtConfig.getRefreshTokenExpiry()))
+                .expiresAt(Instant.now().plusMillis(
+                        jwtConfig.getRefreshTokenExpiry()))
                 .revoked(false)
                 .build();
 
         refreshTokenRepository.save(refreshToken);
 
-        auditService.logAction(
-                AuditAction.USER_LOGIN,
-                user.getId(),
-                ipAddress,
-                userAgent,
-                null
-        );
+        auditService.logAction(AuditAction.USER_LOGIN,
+                user.getId(), ipAddress, userAgent, null);
 
         return authMapper.toLoginResponse(user, accessToken, rawRefreshToken);
-    }
-
-    private void resetAttemptsIfNeeded(User user) {
-        if (user.getPinAttempts() > 0) {
-            user.setPinAttempts(0);
-            userRepository.save(user);
-        }
-    }
-
-    private void updateFailedLoginAttempts(String ipAddress, String userAgent, String identifier, User user) {
-        int newAttempts = user.getPinAttempts() + 1;
-        user.setPinAttempts(newAttempts);
-
-        if (newAttempts >= AppConstants.Security.MAX_PIN_ATTEMPTS) {
-            user.setStatus(AccountStatus.LOCKED);
-
-            auditService.logAction(
-                    AuditAction.ACCOUNT_LOCKED,
-                    user.getId(),
-                    ipAddress,
-                    userAgent,
-                    "{\"reason\":\"too many failed login attempts\"}"
-            );
-        }
-
-        userRepository.saveAndFlush(user);
-
-        auditService.logAction(
-                AuditAction.USER_LOGIN_FAILED,
-                user.getId(),
-                ipAddress,
-                userAgent,
-                "{\"identifier\":\"" + identifier + "\"}"
-        );
     }
 
     @Transactional
@@ -261,7 +206,56 @@ public class AuthService implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPasswordHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                List.of(new SimpleGrantedAuthority(
+                        "ROLE_" + user.getRole().name()))
         );
+    }
+
+    // check if locked — auto unlock if the temporary lock expired
+    private void checkAndHandleLock(User user) {
+        if (user.getStatus() != AccountStatus.LOCKED) return;
+
+        if (user.getAccountLockedUntil() != null
+                && Instant.now().isAfter(user.getAccountLockedUntil())) {
+            user.setStatus(AccountStatus.ACTIVE);
+            user.setFailedLoginAttempts(0);
+            user.setAccountLockedUntil(null);
+            userRepository.save(user);
+            return;
+        }
+
+        String until = user.getAccountLockedUntil() != null
+                ? " until " + user.getAccountLockedUntil()
+                : "";
+        throw new AccountLockedException(
+                "Account is locked" + until + ". Please try again later.");
+    }
+
+    // increment failed attempts — lock if a threshold reached
+    private void handleFailedAttempt(User user,
+                                     String ipAddress,
+                                     String userAgent,
+                                     String identifier) {
+        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+
+        if (user.getFailedLoginAttempts()
+                >= AppConstants.Security.MAX_PIN_ATTEMPTS) {
+            user.setStatus(AccountStatus.LOCKED);
+            user.setAccountLockedUntil(
+                    Instant.now().plus(
+                            AppConstants.Security.LOCK_DURATION_MINUTES,
+                            ChronoUnit.MINUTES));
+            auditService.logAction(AuditAction.ACCOUNT_LOCKED,
+                    user.getId(), ipAddress, userAgent,
+                    "{\"reason\":\"too many failed login attempts\","
+                            + "\"locked_until\":\""
+                            + user.getAccountLockedUntil() + "\"}");
+        }
+
+        userRepository.saveAndFlush(user);
+
+        auditService.logAction(AuditAction.USER_LOGIN_FAILED,
+                user.getId(), ipAddress, userAgent,
+                "{\"identifier\":\"" + identifier + "\"}");
     }
 }

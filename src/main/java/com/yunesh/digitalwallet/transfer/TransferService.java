@@ -96,9 +96,9 @@ public class TransferService {
         }
 
         if (!encoderConfig.getPinEncoder().matches(request.pin(), sender.getPinHash())) {
-            sender.setPinAttempts(sender.getPinAttempts() + 1);
+            sender.setFailedLoginAttempts(sender.getFailedLoginAttempts() + 1);
 
-            if (sender.getPinAttempts()
+            if (sender.getFailedLoginAttempts()
                     >= AppConstants.Security.MAX_PIN_ATTEMPTS) {
                 sender.setStatus(AccountStatus.LOCKED);
             }
@@ -115,12 +115,12 @@ public class TransferService {
                             ? "Account locked due to too many failed PIN attempts"
                             : "Invalid PIN. Attempts remaining: "
                             + (AppConstants.Security.MAX_PIN_ATTEMPTS
-                            - sender.getPinAttempts()));
+                            - sender.getFailedLoginAttempts()));
         }
 
         // reset pin attempts on success
-        if (sender.getPinAttempts() > 0) {
-            sender.setPinAttempts(0);
+        if (sender.getFailedLoginAttempts() > 0) {
+            sender.setFailedLoginAttempts(0);
             userRepository.save(sender);
         }
 

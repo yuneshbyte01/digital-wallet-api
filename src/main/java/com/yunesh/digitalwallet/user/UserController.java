@@ -29,15 +29,6 @@ public class UserController {
                 "Profile updated successfully", 200);
     }
 
-    @PostMapping("/me/kyc")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public ApiResponse<Void> submitKyc(
-            @AuthenticationPrincipal String email,
-            @Valid @RequestBody KycRequest request) {
-        userService.submitKyc(email, request);
-        return ApiResponse.success(null, "KYC submission received", 202);
-    }
-
     @PostMapping("/me/pin")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void setPin(

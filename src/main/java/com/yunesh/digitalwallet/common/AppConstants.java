@@ -9,9 +9,10 @@ public class AppConstants {
     public static class Security {
         private Security() {}
 
-        public static final int    MAX_PIN_ATTEMPTS = 3;
-        public static final String BEARER_PREFIX    = "Bearer ";
-        public static final String TOKEN_HEADER     = "Authorization";
+        public static final int    MAX_PIN_ATTEMPTS      = 3;
+        public static final String BEARER_PREFIX         = "Bearer ";
+        public static final String TOKEN_HEADER          = "Authorization";
+        public static final long   LOCK_DURATION_MINUTES = 30;
     }
 
     public static class Transfer {
