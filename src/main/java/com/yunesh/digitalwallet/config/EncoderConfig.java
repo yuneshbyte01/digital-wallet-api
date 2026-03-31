@@ -9,7 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 public class EncoderConfig {
 
     private final BCryptPasswordEncoder passwordEncoder =
-            new BCryptPasswordEncoder(10);
+            new BCryptPasswordEncoder(12);
 
     private final BCryptPasswordEncoder pinEncoder =
             new BCryptPasswordEncoder(12);

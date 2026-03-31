@@ -16,6 +16,10 @@ spring:
       ddl-auto: validate
     show-sql: true
 
+  web:
+    resources:
+      static-locations: file:uploads/,classpath:/static/
+
 logging:
   level:
     root: INFO
