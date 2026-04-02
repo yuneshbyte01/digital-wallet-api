@@ -91,6 +91,7 @@ public class SecurityConfig {
                                 .hasRole("ADMIN")
                                 .requestMatchers("/api/v1/compliance/**")
                                 .hasRole("COMPLIANCE_OFFICER")
+                                .requestMatchers("/profile-photos/**", "/kyc-documents/**").permitAll()
                                 .anyRequest().authenticated());
 
         return http.build();

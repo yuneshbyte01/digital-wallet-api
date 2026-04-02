@@ -19,7 +19,6 @@ public record KycDetailResponse(
         String documentId,
         LocalDate documentIssueDate,
         String documentIssuedPlace,
-        String profilePicturePath,
         String documentPicturePath,
         String kycStatus,
         Instant submittedAt,

@@ -33,6 +33,9 @@ public class User {
     @Column(length = 10)
     private Gender gender;
 
+    @Column(name = "profile_picture_url", length = 500)
+    private String profilePictureUrl;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 

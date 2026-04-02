@@ -31,12 +31,8 @@ public class FileUploadController {
 
         String path = fileUploadService.uploadProfilePhoto(file, user.getId());
 
-        KycDetail detail = kycDetailRepository
-                .findByUserId(user.getId())
-                .orElse(KycDetail.builder().user(user).build());
-
-        detail.setProfilePicturePath(path);
-        kycDetailRepository.save(detail);
+        user.setProfilePictureUrl(path);
+        userRepository.save(user);
 
         return ApiResponse.success(path, "Profile photo uploaded", 200);
     }

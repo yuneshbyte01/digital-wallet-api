@@ -9,5 +9,6 @@ public record RegisterResponse(
         String phone,
         String gender,
         String role,
-        String kycStatus
+        String kycStatus,
+        String profilePictureUrl
 ) {}

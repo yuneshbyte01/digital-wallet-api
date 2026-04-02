@@ -66,9 +66,6 @@ public class KycDetail {
     @Column(name = "document_issued_place", length = 150)
     private String documentIssuedPlace;
 
-    @Column(name = "profile_picture_path", length = 500)
-    private String profilePicturePath;
-
     @Column(name = "document_picture_path", length = 500)
     private String documentPicturePath;
 

@@ -8,8 +8,11 @@ public record UserProfileResponse(
         String fullName,
         String email,
         String phone,
+        String gender,
         String role,
         String status,
         String kycStatus,
+        String profilePictureUrl,
+        Instant lastLoginAt,
         Instant createdAt
 ) {}
