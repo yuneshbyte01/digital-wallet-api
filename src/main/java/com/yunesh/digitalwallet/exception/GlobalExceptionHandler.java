@@ -207,6 +207,17 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), Instant.now());
     }
 
+    @ExceptionHandler(InvalidOtpException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleInvalidOtp(
+            InvalidOtpException ex,
+            HttpServletRequest request) {
+
+        log.warn("Invalid OTP at {}: {}", request.getRequestURI(), ex.getMessage());
+        return new ErrorResponse(400, "Bad Request", ex.getMessage(),
+                request.getRequestURI(), Instant.now());
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleGeneric(

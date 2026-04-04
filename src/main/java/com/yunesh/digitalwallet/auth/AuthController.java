@@ -14,6 +14,8 @@ public class AuthController {
 
     private final AuthService authService;
     private final TokenRefreshService tokenRefreshService;
+    private final OtpService otpService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -43,5 +45,35 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        otpService.generateAndSendForgotPasswordOtp(request.email());
+        return ApiResponse.success(null,
+                "OTP sent to your email. Valid for 5 minutes.", 200);
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
+        return ApiResponse.success(null, "Password reset successfully", 200);
+    }
+
+    @PostMapping("/forgot-pin")
+    public ApiResponse<Void> forgotPin(
+            @Valid @RequestBody ForgotPinRequest request) {
+        otpService.generateAndSendForgotPinOtp(request.phone());
+        return ApiResponse.success(null,
+                "OTP sent to your registered email. Valid for 5 minutes.", 200);
+    }
+
+    @PostMapping("/reset-pin")
+    public ApiResponse<Void> resetPin(
+            @Valid @RequestBody ResetPinRequest request) {
+        passwordResetService.resetPin(request);
+        return ApiResponse.success(null, "PIN reset successfully", 200);
     }
 }
