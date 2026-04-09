@@ -5,13 +5,20 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record TransferResponse(
-        UUID id,
-        UUID senderWalletId,
-        UUID receiverWalletId,
-        BigDecimal amount,
+        UUID transferId,
+        String transactionCode,
         String status,
-        UUID idempotencyKey,
-        String note,
-        Instant createdAt,
-        Instant completedAt
-) {}
+        Instant processedAt,
+        TransferParticipant sender,
+        TransferParticipant receiver,
+        BigDecimal amount,
+        String currency,
+        String purpose,
+        String remarks
+) {
+    public record TransferParticipant(
+            String fullName,
+            String phone,
+            String email
+    ) {}
+}

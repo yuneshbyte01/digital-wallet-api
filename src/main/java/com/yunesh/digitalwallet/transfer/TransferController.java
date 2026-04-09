@@ -6,8 +6,7 @@ import com.yunesh.digitalwallet.exception.ResourceNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,17 +21,26 @@ public class TransferController {
     private final TransferRepository transferRepository;
     private final TransferMapper transferMapper;
 
+    @PostMapping("/lookup")
+    public ApiResponse<ReceiverLookupResponse> lookup(
+            @Valid @RequestBody ReceiverLookupRequest request) {
+        return ApiResponse.success(
+                transferService.lookupReceiver(request.identifier()),
+                "Receiver found", 200);
+    }
+
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TransferResponse> transfer(
             @AuthenticationPrincipal String email,
             @Valid @RequestBody TransferRequest request) {
         return ApiResponse.success(
                 transferService.executeTransfer(email, request),
-                "Transfer successful", 200);
+                "Transfer completed successfully", 201);
     }
 
-    @GetMapping
-    public ApiResponse<Page<TransferResponse>> getTransfers(
+    @GetMapping("/me")
+    public ApiResponse<Page<TransferResponse>> getMyTransfers(
             @AuthenticationPrincipal String email,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -41,15 +49,8 @@ public class TransferController {
             size = AppConstants.Pagination.MAX_PAGE_SIZE;
         }
 
-        // get sender wallet — reuse existing service method via repository
-        Page<TransferResponse> transfers = transferRepository
-                .findBySenderWalletId(
-                        transferService.getSenderWalletId(email),
-                        PageRequest.of(page, size,
-                                Sort.by("createdAt").descending()))
-                .map(transferMapper::toResponse);
-
-        return ApiResponse.success(transfers);
+        return ApiResponse.success(
+                transferService.getMyTransfers(email, page, size));
     }
 
     @GetMapping("/{id}")

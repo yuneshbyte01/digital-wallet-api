@@ -14,9 +14,15 @@ public interface TransferRepository extends JpaRepository<Transfer, UUID> {
 
     boolean existsByIdempotencyKey(UUID idempotencyKey);
 
-    Page<Transfer> findBySenderWalletId(UUID senderWalletId, Pageable pageable);
-
     Transfer findByIdempotencyKey(UUID idempotencyKey);
+
+    Page<Transfer> findBySenderWalletId(UUID senderWalletId,
+                                        Pageable pageable);
+
+    Page<Transfer> findBySenderWalletIdOrReceiverWalletId(
+            UUID senderWalletId,
+            UUID receiverWalletId,
+            Pageable pageable);
 
     @Query("""
             SELECT COALESCE(SUM(t.amount), 0)

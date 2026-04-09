@@ -5,7 +5,6 @@ import com.yunesh.digitalwallet.AbstractIntegrationTest;
 import com.yunesh.digitalwallet.auth.LoginRequest;
 import com.yunesh.digitalwallet.auth.RegisterRequest;
 import com.yunesh.digitalwallet.user.Gender;
-import com.yunesh.digitalwallet.user.SetPinRequest;
 import com.yunesh.digitalwallet.wallet.DepositRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,33 +26,42 @@ class TransferControllerTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        String senderEmail = "sender+" + UUID.randomUUID() + "@example.com";
-        String receiverEmail = "receiver+" + UUID.randomUUID() + "@example.com";
+        String senderEmail = "sender+" + UUID.randomUUID() + "@gmail.com";
+        String receiverEmail = "receiver+" + UUID.randomUUID() + "@gmail.com";
         senderPhone = "98" + randomDigits();
         receiverPhone = "98" + randomDigits();
-        String senderPin = "1234";
-        String receiverPin = "5678";
 
+        // register sender
         mockMvc.perform(
-                        post(api("/auth/register"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(
-                                        new RegisterRequest("Sender", senderEmail, "password123",senderPhone, senderPin,
-                                                Gender.OTHER)
-                                ))
-                )
-                .andExpect(status().isCreated());
+                post(api("/auth/register"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RegisterRequest(
+                                        "Sender",
+                                        senderEmail,
+                                        "password123",
+                                        senderPhone,
+                                        "1234",
+                                        Gender.OTHER)
+                        ))
+        ).andExpect(status().isCreated());
 
+        // register receiver
         mockMvc.perform(
-                        post(api("/auth/register"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(
-                                        new RegisterRequest("Receiver", receiverEmail, "password123", receiverPhone,
-                                                receiverPin, Gender.OTHER)
-                                ))
-                )
-                .andExpect(status().isCreated());
+                post(api("/auth/register"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new RegisterRequest(
+                                        "Receiver",
+                                        receiverEmail,
+                                        "password123",
+                                        receiverPhone,
+                                        "5678",
+                                        Gender.OTHER)
+                        ))
+        ).andExpect(status().isCreated());
 
+        // create system wallet if not exists
         jdbcTemplate.update("""
                 INSERT INTO wallets (id, user_id, currency, status, version)
                 SELECT '00000000-0000-0000-0000-000000000000',
@@ -62,61 +70,56 @@ class TransferControllerTest extends AbstractIntegrationTest {
                 ON CONFLICT DO NOTHING
                 """, senderEmail);
 
+        // login sender with email + password
         MvcResult loginResult = mockMvc.perform(
-                        post(api("/auth/login"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(
-                                        new LoginRequest(senderEmail, "password123", "1234")
-                                ))
-                )
-                .andExpect(status().isOk())
-                .andReturn();
+                post(api("/auth/login"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest(senderEmail, "password123", null)
+                        ))
+        ).andExpect(status().isOk()).andReturn();
 
-        senderToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
-                .path("data")
-                .path("accessToken")
-                .asText();
+        senderToken = objectMapper.readTree(
+                        loginResult.getResponse().getContentAsString())
+                .path("data").path("accessToken").asText();
 
+        // deposit funds for sender
         mockMvc.perform(
-                        post(api("/users/me/pin"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(new SetPinRequest("1234")))
-                )
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(
-                        post(api("/wallets/deposit"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(
-                                        new DepositRequest(new BigDecimal("5000.00"), UUID.randomUUID())
-                                ))
-                )
-                .andExpect(status().isOk());
+                post(api("/wallets/deposit"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new DepositRequest(
+                                        new BigDecimal("5000.00"),
+                                        UUID.randomUUID())
+                        ))
+        ).andExpect(status().isOk());
     }
 
     @Test
-    void transfer_happyPath_returns200() throws Exception {
+    void transfer_happyPath_returns201() throws Exception {
         TransferRequest request = new TransferRequest(
                 receiverPhone,
                 new BigDecimal("500.00"),
+                TransferPurpose.PERSONAL,
+                "Test transfer",
                 "1234",
-                UUID.randomUUID(),
-                "Test transfer"
+                UUID.randomUUID()
         );
 
         MvcResult result = mockMvc.perform(
-                        post(api("/transfers"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
-                .andExpect(status().isOk())
-                .andReturn();
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated()).andReturn();
 
-        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        assertThat(body.path("data").path("status").asText()).isEqualTo("COMPLETED");
+        JsonNode body = objectMapper.readTree(
+                result.getResponse().getContentAsString());
+        assertThat(body.path("data").path("status").asText())
+                .isEqualTo("COMPLETED");
+        assertThat(body.path("data").path("transactionCode").asText())
+                .startsWith("TXN-");
     }
 
     @Test
@@ -124,67 +127,100 @@ class TransferControllerTest extends AbstractIntegrationTest {
         TransferRequest request = new TransferRequest(
                 senderPhone,
                 new BigDecimal("500.00"),
+                TransferPurpose.PERSONAL,
+                "Self transfer",
                 "1234",
-                UUID.randomUUID(),
-                "Self transfer"
+                UUID.randomUUID()
         );
 
         MvcResult result = mockMvc.perform(
-                        post(api("/transfers"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
-                .andExpect(status().isBadRequest())
-                .andReturn();
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isBadRequest()).andReturn();
 
-        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode body = objectMapper.readTree(
+                result.getResponse().getContentAsString());
         assertThat(body.path("status").asInt()).isEqualTo(400);
     }
 
     @Test
-    void transfer_idempotentRequest_returnsSameResponse() throws Exception {
+    void transfer_idempotentRequest_returnsSameTransactionCode() throws Exception {
         UUID idempotencyKey = UUID.randomUUID();
 
         TransferRequest request = new TransferRequest(
                 receiverPhone,
                 new BigDecimal("500.00"),
+                TransferPurpose.PERSONAL,
+                "Idempotent transfer",
                 "1234",
-                idempotencyKey,
-                "Idempotent transfer"
+                idempotencyKey
         );
 
         String json = objectMapper.writeValueAsString(request);
 
         MvcResult first = mockMvc.perform(
-                        post(api("/transfers"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(json)
-                )
-                .andExpect(status().isOk())
-                .andReturn();
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json)
+        ).andExpect(status().isCreated()).andReturn();
 
         MvcResult second = mockMvc.perform(
-                        post(api("/transfers"))
-                                .header("Authorization", "Bearer " + senderToken)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(json)
-                )
-                .andExpect(status().isOk())
-                .andReturn();
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json)
+        ).andExpect(status().isCreated()).andReturn();
 
-        String firstId = objectMapper.readTree(first.getResponse().getContentAsString())
-                .path("data")
-                .path("id")
-                .asText();
+        String firstCode = objectMapper.readTree(
+                        first.getResponse().getContentAsString())
+                .path("data").path("transactionCode").asText();
 
-        String secondId = objectMapper.readTree(second.getResponse().getContentAsString())
-                .path("data")
-                .path("id")
-                .asText();
+        String secondCode = objectMapper.readTree(
+                        second.getResponse().getContentAsString())
+                .path("data").path("transactionCode").asText();
 
-        assertThat(firstId).isEqualTo(secondId);
+        assertThat(firstCode).isEqualTo(secondCode);
+    }
+
+    @Test
+    void transfer_insufficientFunds_returns400() throws Exception {
+        TransferRequest request = new TransferRequest(
+                receiverPhone,
+                new BigDecimal("99999.00"),
+                TransferPurpose.PERSONAL,
+                "Too much",
+                "1234",
+                UUID.randomUUID()
+        );
+
+        mockMvc.perform(
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transfer_wrongPin_returns423() throws Exception {
+        TransferRequest request = new TransferRequest(
+                receiverPhone,
+                new BigDecimal("100.00"),
+                TransferPurpose.PERSONAL,
+                "Wrong pin test",
+                "9999",
+                UUID.randomUUID()
+        );
+
+        mockMvc.perform(
+                post(api("/transfers"))
+                        .header("Authorization", "Bearer " + senderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isLocked());
     }
 
     private String randomDigits() {

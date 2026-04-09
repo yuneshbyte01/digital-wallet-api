@@ -197,11 +197,18 @@ public class AuthService implements UserDetailsService {
 
     @Nonnull
     @Override
-    public UserDetails loadUserByUsername(@Nonnull String email)
+    public UserDetails loadUserByUsername(@Nonnull String identifier)
             throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+
+        boolean isEmail = identifier.contains("@");
+
+        User user = isEmail
+                ? userRepository.findByEmail(identifier)
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        "User not found: " + email));
+                        "User not found with email: " + identifier))
+                : userRepository.findByPhone(identifier)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "User not found with phone: " + identifier));
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),

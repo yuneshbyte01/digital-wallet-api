@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -37,13 +36,40 @@ public class TransferService {
     private final TransferMapper transferMapper;
     private final EncoderConfig encoderConfig;
     private final AuditService auditService;
+    private final TransactionCodeGenerator transactionCodeGenerator;
+
+    @Transactional(readOnly = true)
+    public ReceiverLookupResponse lookupReceiver(String identifier) {
+        boolean isEmail = identifier.contains("@");
+
+        User receiver = isEmail
+                ? userRepository.findByEmail(identifier)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No user found with email: " + identifier))
+                : userRepository.findByPhone(identifier)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No user found with phone: " + identifier));
+
+        Wallet wallet = walletRepository
+                .findByUserIdAndCurrency(receiver.getId(), "NPR")
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Receiver wallet not found"));
+
+        return new ReceiverLookupResponse(
+                receiver.getId(),
+                receiver.getFullName(),
+                identifier,
+                wallet.getId()
+        );
+    }
 
     @Transactional
     public TransferResponse executeTransfer(String senderEmail,
                                             TransferRequest request) {
 
         // Step 1 — idempotency check
-        if (transferRepository.existsByIdempotencyKey(request.idempotencyKey())) {
+        if (transferRepository.existsByIdempotencyKey(
+                request.idempotencyKey())) {
             Transfer existing = transferRepository
                     .findByIdempotencyKey(request.idempotencyKey());
             return transferMapper.toResponse(existing);
@@ -59,11 +85,19 @@ public class TransferService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Sender wallet not found"));
 
-        // resolve receiver
-        User receiver = userRepository.findByPhone(request.receiverPhone())
+        // resolve receiver by phone or email
+        String receiverIdentifier = request.receiverIdentifier();
+        boolean isEmail = receiverIdentifier.contains("@");
+
+        User receiver = isEmail
+                ? userRepository.findByEmail(receiverIdentifier)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Receiver not found for phone: "
-                                + request.receiverPhone()));
+                        "No user found with email: "
+                                + receiverIdentifier))
+                : userRepository.findByPhone(receiverIdentifier)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No user found with phone: "
+                                + receiverIdentifier));
 
         Wallet receiverWallet = walletRepository
                 .findByUserIdAndCurrency(receiver.getId(), "NPR")
@@ -72,8 +106,11 @@ public class TransferService {
 
         // Step 2 — self-transfer guard
         if (senderWallet.getId().equals(receiverWallet.getId())) {
-            auditService.logAction(AuditAction.TRANSFER_SELF_REJECTED, sender.getId(), null, null,
-                    Map.of("idempotencyKey", request.idempotencyKey().toString()).toString());
+            auditService.logAction(
+                    AuditAction.TRANSFER_SELF_REJECTED,
+                    sender.getId(), null, null,
+                    "{\"idempotencyKey\":\""
+                            + request.idempotencyKey() + "\"}");
             throw new SelfTransferException(
                     "Cannot transfer to your own wallet");
         }
@@ -95,37 +132,47 @@ public class TransferService {
                     "PIN not set. Please set your PIN first.");
         }
 
-        if (!encoderConfig.getPinEncoder().matches(request.pin(), sender.getPinHash())) {
-            sender.setFailedLoginAttempts(sender.getFailedLoginAttempts() + 1);
+        if (!encoderConfig.getPinEncoder().matches(
+                request.pin(), sender.getPinHash())) {
+
+            sender.setFailedLoginAttempts(
+                    sender.getFailedLoginAttempts() + 1);
 
             if (sender.getFailedLoginAttempts()
                     >= AppConstants.Security.MAX_PIN_ATTEMPTS) {
                 sender.setStatus(AccountStatus.LOCKED);
+                sender.setAccountLockedUntil(
+                        Instant.now().plus(
+                                AppConstants.Security.LOCK_DURATION_MINUTES,
+                                java.time.temporal.ChronoUnit.MINUTES));
+                auditService.logAction(
+                        AuditAction.ACCOUNT_LOCKED,
+                        sender.getId(), null, null,
+                        "{\"reason\":\"too many failed PIN attempts\"}");
             }
 
             userRepository.save(sender);
 
-            if (sender.getStatus() == AccountStatus.LOCKED) {
-                auditService.logAction(AuditAction.ACCOUNT_LOCKED, sender.getId(), null, null,
-                        Map.of("reason", "too many failed PIN attempts").toString());
-            }
-
             throw new AccountLockedException(
                     sender.getStatus() == AccountStatus.LOCKED
-                            ? "Account locked due to too many failed PIN attempts"
+                            ? "Account locked for "
+                            + AppConstants.Security.LOCK_DURATION_MINUTES
+                            + " minutes due to too many failed PIN attempts"
                             : "Invalid PIN. Attempts remaining: "
                             + (AppConstants.Security.MAX_PIN_ATTEMPTS
                             - sender.getFailedLoginAttempts()));
         }
 
-        // reset pin attempts on success
+        // reset attempts on successful PIN
         if (sender.getFailedLoginAttempts() > 0) {
             sender.setFailedLoginAttempts(0);
+            sender.setAccountLockedUntil(null);
             userRepository.save(sender);
         }
 
         // Step 5 — balance check
-        BigDecimal balance = ledgerService.computeBalance(senderWallet.getId());
+        BigDecimal balance = ledgerService.computeBalance(
+                senderWallet.getId());
         if (balance.compareTo(request.amount()) < 0) {
             throw new InsufficientFundsException(
                     "Insufficient funds. Available: NPR " + balance);
@@ -142,7 +189,9 @@ public class TransferService {
                 .amount(request.amount())
                 .status(TransferStatus.PENDING)
                 .idempotencyKey(request.idempotencyKey())
-                .note(request.note())
+                .transactionCode(transactionCodeGenerator.generate())
+                .purpose(request.purpose())
+                .remarks(request.remarks())
                 .build();
 
         transferRepository.save(transfer);
@@ -161,25 +210,16 @@ public class TransferService {
         transfer.setCompletedAt(Instant.now());
         transferRepository.save(transfer);
 
-        auditService.logAction(AuditAction.TRANSFER_COMPLETED, sender.getId(), null, null,
-                Map.of("transferId", transfer.getId().toString(),
-                        "amount", request.amount().toPlainString(),
-                        "receiverPhone", request.receiverPhone()).toString());
+        // Step 10 — audit log
+        auditService.logAction(
+                AuditAction.TRANSFER_COMPLETED,
+                sender.getId(), null, null,
+                "{\"transferId\":\"" + transfer.getId()
+                        + "\",\"amount\":\"" + request.amount()
+                        + "\",\"receiver\":\""
+                        + receiverIdentifier + "\"}");
 
         return transferMapper.toResponse(transfer);
-    }
-
-    @Transactional(readOnly = true)
-    public UUID getSenderWalletId(String email) {
-        User sender = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found: " + email));
-
-        return walletRepository
-                .findByUserIdAndCurrency(sender.getId(), "NPR")
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Wallet not found"))
-                .getId();
     }
 
     @Transactional
@@ -205,14 +245,40 @@ public class TransferService {
         transfer.setStatus(TransferStatus.REVERSED);
         transferRepository.save(transfer);
 
+        auditService.logAction(
+                AuditAction.TRANSFER_FAILED,
+                transfer.getSenderWallet().getUser().getId(),
+                null, null,
+                "{\"transferId\":\"" + transferId
+                        + "\",\"reason\":\"admin reversal\"}");
+
         return transferMapper.toResponse(transfer);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TransferResponse> getMyTransfers(String email,
+                                                 int page, int size) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found"));
+
+        Wallet wallet = walletRepository
+                .findByUserIdAndCurrency(user.getId(), "NPR")
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Wallet not found"));
+
+        return transferRepository
+                .findBySenderWalletIdOrReceiverWalletId(
+                        wallet.getId(), wallet.getId(),
+                        PageRequest.of(page, size,
+                                Sort.by("createdAt").descending()))
+                .map(transferMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     public Page<TransferResponse> getAllTransfers(int page, int size) {
         return transferRepository.findAll(
-                       PageRequest.of(
-                                page, size,
+                        PageRequest.of(page, size,
                                 Sort.by("createdAt").descending()))
                 .map(transferMapper::toResponse);
     }

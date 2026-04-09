@@ -37,12 +37,19 @@ public class Transfer {
     @Column(nullable = false, length = 20)
     private TransferStatus status;
 
-    @Column(name = "idempotency_key", nullable = false, unique = true,
-            updatable = false)
+    @Column(name = "idempotency_key", nullable = false,
+            unique = true, updatable = false)
     private UUID idempotencyKey;
 
-    @Column(length = 255)
-    private String note;
+    @Column(name = "transaction_code", length = 30, unique = true)
+    private String transactionCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private TransferPurpose purpose;
+
+    @Column(columnDefinition = "TEXT")
+    private String remarks;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

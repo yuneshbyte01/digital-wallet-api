@@ -35,14 +35,6 @@ public class AdminController {
                 "Wallet status updated", 200);
     }
 
-    @PutMapping("/transfers/{transferId}/reversal")
-    public ApiResponse<TransferResponse> reverseTransfer(
-            @PathVariable UUID transferId) {
-        return ApiResponse.success(
-                transferService.reverseTransfer(transferId),
-                "Transfer reversed", 200);
-    }
-
     @PutMapping("/users/{userId}/lock")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void toggleUserLock(@PathVariable UUID userId) {
@@ -76,12 +68,5 @@ public class AdminController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.success(walletService.getAllWallets(page, size));
-    }
-
-    @GetMapping("/transfers")
-    public ApiResponse<Page<TransferResponse>> getAllTransfers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(transferService.getAllTransfers(page, size));
     }
 }
