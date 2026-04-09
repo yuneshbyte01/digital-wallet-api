@@ -1,32 +1,38 @@
 # 💳 Digital Wallet & Money Transfer API
 
-> Built a production-style digital wallet API with double-entry ledger design, idempotency-safe transfers, and fraud rate-limiting — handling end-to-end transaction lifecycle from deposit to peer-to-peer transfer.
+> A production-grade fintech REST API built with Spring Boot — the backend engine that powers a digital wallet application similar to eSewa. Features double-entry ledger accounting, idempotency-safe transfers, JWT authentication with refresh token rotation, KYC verification, OTP-based password reset, and multi-step transfer flow with transaction codes.
 
 ![Java](https://img.shields.io/badge/Java-25-orange?style=flat-square)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.4-brightgreen?style=flat-square)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue?style=flat-square)
+![Flyway](https://img.shields.io/badge/Flyway-11-red?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+**Live API:** `https://digital-wallet-api-yumj.onrender.com`  
+**Swagger UI:** `https://digital-wallet-api-yumj.onrender.com/swagger-ui/index.html`
 
 ---
 
 ## 📌 Overview
 
-The Digital Wallet & Money Transfer API is a production-style fintech backend built with Spring Boot 4, simulating a complete digital wallet system as used by real payment platforms like eSewa, Khalti, and IME Pay. It features double-entry ledger accounting, idempotency-safe peer-to-peer transfers, JWT-based authentication with refresh token revocation, role-based access control, and fraud rate-limiting.
+The Digital Wallet & Money Transfer API simulates the complete backend of a real payment platform — built from scratch, one migration at a time, with production patterns throughout.
 
 ### What makes this fintech-grade
 
-- **Double-entry bookkeeping** — every transaction creates exactly one ledger row carrying both debit and credit sides. Balance = `SUM(credits) − SUM(debits)`. Prevents balance drift permanently.
-- **Idempotency keys** — every transfer carries a client-generated UUID. Network retries return the original result — duplicate charges are structurally impossible.
-- **Atomic transactions** — `@Transactional` wraps both sides of every transfer. Either both debit and credit succeed, or both roll back. Partial transfers cannot occur.
-- **Refresh token revocation** — refresh tokens are stored as SHA-256 hashes. Logout revokes the stored token immediately, preventing reuse of stolen tokens.
-- **Self-transfer prevention** — the transfer service explicitly validates that sender and receiver wallets differ before performing any PIN or balance checks.
-- **Optimistic locking** — a `@Version` field on the `Wallet` entity prevents concurrent write conflicts. Mapped to HTTP 409.
-- **KYC lifecycle** — a dedicated `kyc_status` column (PENDING / VERIFIED / REJECTED) tracks document verification state.
-- **Transaction PIN** — separate from login password. BCrypt-hashed at strength 12. Account locks after three failed attempts.
-- **Rate limiting** — five transfers per minute per user, ten login attempts per minute per IP. Returns HTTP 429 with `Retry-After` header.
-- **HTTPS enforcement** — security configuration requires a secure channel and sets the HSTS header.
-- **Compliance audit log** — every sensitive action persisted with full context for compliance officer review.
+- **Double-entry ledger** — the `wallets` table has no balance column. Ever. Balance is always computed as `SUM(credits) − SUM(debits)` from `ledger_entries`. A balance column can drift. A ledger never lies.
+- **Idempotency keys** — every transfer carries a client-generated UUID. Network retries return the original result. Duplicate charges are structurally impossible.
+- **Atomic transactions** — `@Transactional` wraps the full 9-step transfer engine. Both ledger entries succeed or both roll back. Partial transfers cannot occur.
+- **Flexible login** — email + password or phone + PIN. Auto-detected from the identifier. Email cannot use PIN. Phone cannot use password. PIN is a mobile-first credential tied to money movement.
+- **Temporary account lockout** — 3 failed attempts locks the account for 30 minutes. Auto-unlocks when the duration expires. No admin intervention needed.
+- **Refresh token rotation** — raw token is a UUID. Only the SHA-256 hash is stored. On refresh, old token is deleted and a new one is issued. On logout, token is revoked immediately.
+- **OTP-based reset** — forgot password sends OTP to email. Forgot PIN sends OTP to registered email. OTPs expire in 5 minutes and can only be used once.
+- **Trusted email validation** — disposable and unknown email domains are rejected at registration. Only Gmail, Outlook, Yahoo, iCloud, and ProtonMail are accepted.
+- **KYC lifecycle** — personal details, family information, marital status with conditional spouse fields, document upload, and admin review workflow with approval and rejection reason.
+- **Multi-step transfer flow** — receiver lookup by phone or email shows name before proceeding. Transfer receipt includes unique transaction code, sender and receiver details, purpose, and remarks.
+- **Admin transfer reversal** — completed transfers can be reversed. Creates two new REVERSAL ledger entries, preserving the originals.
+- **File storage** — local folder in dev, Supabase Storage in prod. Profile photo on user record, document photo on KYC record.
+- **Rate limiting** — 5 transfers per minute per user, 10 login attempts per minute per IP. Returns HTTP 429 with `Retry-After` header.
 
 ---
 
@@ -34,43 +40,45 @@ The Digital Wallet & Money Transfer API is a production-style fintech backend bu
 
 | Dependency | Version | Reason |
 |---|---|---|
-| Spring Boot | 4.0.4 | Latest release. Supports Java 25, improved observability. |
-| Java | 25 | Virtual threads reduce I/O-bound blocking. Records provide clean immutable DTOs. |
-| Spring Security | 7.0 | Stateless JWT session management. Method-level `@PreAuthorize`. HSTS enforcement. |
-| Spring Data JPA | 4.x | Hibernate 7 ORM. Custom `@Query` for ledger SUM aggregations. |
-| PostgreSQL | 17 | ACID-compliant. Native UUID PKs. Row-level locking for concurrent transfers. |
-| Flyway | 11 | Versioned sequential migrations. `ddl-auto=validate` in all environments. |
-| JJWT | 0.12.6 | HS256 JWT signing. Access tokens 15 min. Refresh tokens 7 days, stored as hashes. |
-| Bucket4j | 8.x | Token bucket algorithm for rate limiting. In-memory for single-instance. |
-| BCrypt | Spring built-in | Password and PIN hashing. Strength 12. Refresh tokens as SHA-256 hashes. |
-| MapStruct | 1.6.3 | Compile-time DTO-to-entity mapping. Zero reflection. Fail-fast at build time. |
-| SpringDoc OpenAPI | 2.8.6 | Swagger UI auto-generated at `/swagger-ui/index.html`. JWT bearer scheme configured. |
-| Lombok | 1.18.x | `@Builder`, `@RequiredArgsConstructor`. Used sparingly on JPA entities. |
-| JUnit 5 + Mockito | Spring built-in | Unit tests for service layer. Repositories mocked. |
-| Testcontainers | 1.20.4 | Real PostgreSQL container in integration tests. No H2 anywhere. |
-| Docker + Compose | — | Application, PostgreSQL, and optional Redis in a single `docker-compose.yml`. |
+| Spring Boot | 4.0.4 | Latest release, Java 25 support |
+| Java | 25 | Records for clean immutable DTOs, modern language features |
+| Spring Security | 7.0 | Stateless JWT, method-level `@PreAuthorize`, HSTS |
+| Spring Data JPA | 4.x | Hibernate 7, custom `@Query` for ledger SUM aggregations |
+| PostgreSQL | 17 | ACID-compliant, native UUID PKs, row-level locking |
+| Flyway | 11 | Versioned migrations, `ddl-auto=validate` in all environments |
+| JJWT | 0.12.6 | HS256 JWT signing, access 15 min, refresh 7 days |
+| Bucket4j | 8.x | Token bucket algorithm for rate limiting |
+| BCrypt | Spring built-in | Password and PIN hashing at strength 12, separate encoders |
+| MapStruct | 1.6.3 | Compile-time DTO mapping, zero reflection |
+| SpringDoc OpenAPI | 2.8.6 | Swagger UI auto-generated, JWT bearer configured |
+| Lombok | 1.18.x | `@Builder`, `@RequiredArgsConstructor` |
+| Testcontainers | 1.20.4 | Real PostgreSQL in integration tests, no H2 anywhere |
+| Docker | — | Multi-stage Dockerfile for production build |
 
 ---
 
 ## 📁 Project Structure
 
-Feature-based packages — never layer-based. Each feature is self-contained with its own entity, repository, service, controller, and DTOs.
+Feature-based packages — never layer-based. Each feature owns its entity, repository, service, controller, and DTOs.
 
 ```
 com.yunesh.digitalwallet/
-├── config/         # SecurityConfig, JwtConfig, RateLimitConfig
-├── auth/           # AuthController, AuthService, JwtService, JwtAuthenticationFilter
-│                   # RefreshToken entity, TokenRefreshService
-├── user/           # User entity, UserService, UserController, KYC/PIN DTOs
-├── wallet/         # Wallet entity, WalletService, WalletController, DepositRequest
-├── ledger/         # LedgerEntry entity, LedgerRepository (balance SUM query), LedgerService
-├── transfer/       # Transfer entity, TransferService (9-step engine), TransferLimitService
-├── audit/          # AuditLog entity, AuditService (@Async), AuditController (compliance)
-├── ratelimit/      # RateLimitFilter, RateLimitBucketService (Bucket4j)
-├── statement/      # Statement entity, StatementService, StatementController
-├── scheduler/      # StatementGeneratorJob, FraudFlagJob (@Scheduled)
-├── exception/      # GlobalExceptionHandler, all custom exceptions
-└── common/         # ApiResponse<T>, ErrorResponse, ValidationErrorResponse, AppConstants
+├── config/          — SecurityConfig, JwtConfig, EncoderConfig, CorsConfig, StorageProperties
+├── auth/            — AuthService, JwtService, TokenRefreshService, OtpService, PasswordResetService
+│                      RefreshToken, OtpToken, AuthMapper
+├── user/            — User, UserService, UserController, UserMapper
+│                      Enums: UserRole, AccountStatus, KycStatus, Gender, MaritalStatus, KycDocumentType
+├── wallet/          — Wallet, WalletService, WalletController
+├── ledger/          — LedgerEntry, LedgerService (computeBalance, createEntryPair)
+├── transfer/        — Transfer, TransferService (9-step engine), TransferLimitService
+│                      TransactionCodeGenerator, TransferPurpose
+├── kyc/             — KycDetail, KycService, KycController, AdminKycController, KycMapper
+├── audit/           — AuditLog, AuditService (@Async), AuditAction enum
+├── ratelimit/       — RateLimitFilter, RateLimitBucketService
+├── storage/         — StorageService (interface), LocalStorageService (@Profile dev)
+│                      SupabaseStorageService (@Profile prod), FileUploadService, FileUploadController
+├── exception/       — GlobalExceptionHandler + all custom exceptions
+└── common/          — ApiResponse<T>, ErrorResponse, ValidationErrorResponse, AppConstants
 ```
 
 ---
@@ -81,21 +89,28 @@ com.yunesh.digitalwallet/
 
 | Version | File | Description |
 |---|---|---|
-| V1 | `V1__create_users_table.sql` | Users with KYC fields, PIN, role, status |
+| V1 | `V1__create_users_table.sql` | Users — email, phone, password, PIN, role, status |
 | V2 | `V2__create_wallets_table.sql` | Wallets with `@Version` for optimistic locking |
-| V3 | `V3__create_ledger_entries_table.sql` | Core financial table — single row per transaction |
+| V3 | `V3__create_ledger_entries_table.sql` | Core financial table — debit and credit sides |
 | V4 | `V4__create_transfers_table.sql` | Transfer records with idempotency key |
 | V5 | `V5__create_audit_logs_table.sql` | Audit log with JSONB metadata |
 | V6 | `V6__create_statements_table.sql` | Monthly statement records |
-| V7 | `V7__add_indexes.sql` | Indexes on all FK columns and hot query columns |
+| V7 | `V7__add_indexes.sql` | Indexes on FK columns and hot query columns |
 | V8 | `V8__create_refresh_tokens_table.sql` | Hashed refresh tokens with revocation flag |
+| V9 | `V9__add_gender_to_users.sql` | Gender column on users |
+| V10 | `V10__alter_users_for_new_schema.sql` | failed_login_attempts, account_locked_until, last_login_at |
+| V11 | `V11__create_kyc_details_table.sql` | KYC — personal info, document, review workflow |
+| V12 | `V12__add_profile_picture_to_users.sql` | Profile picture URL on users |
+| V13 | `V13__create_otp_tokens_table.sql` | OTP tokens for password and PIN reset |
+| V14 | `V14__alter_transfers_add_purpose_remarks.sql` | transaction_code, purpose, remarks on transfers |
 
 > **Key design decisions**
 >
-> - The `wallets` table has **no balance column**. Balance is always computed: `SUM(amount WHERE credit_wallet_id = :id) − SUM(amount WHERE debit_wallet_id = :id)`
+> - `wallets` has **no balance column** — balance always computed from `ledger_entries`
 > - All monetary columns use `NUMERIC(19,4)` — never `float` or `double`
 > - All PKs are UUID with `DEFAULT gen_random_uuid()`
 > - `ddl-auto=validate` in all environments — Flyway owns the schema, Hibernate only validates
+> - Never edit an existing migration — every schema change is a new versioned file
 
 ---
 
@@ -103,261 +118,245 @@ com.yunesh.digitalwallet/
 
 All paths use the `/api/v1/` prefix. Every response follows the `ApiResponse<T>` envelope.
 
-### Public (no token required)
+### Auth (public)
 
-| Method | Path | Description | Response |
+| Method | Path | Description | Status |
 |---|---|---|---|
-| POST | `/auth/register` | Register new user | 201 + user details |
-| POST | `/auth/login` | Login with email + password | 200 + token pair |
-| POST | `/auth/refresh` | Rotate refresh token | 200 + new token pair |
-| POST | `/auth/logout` | Revoke refresh token | 204 |
+| POST | `/auth/register` | Register with trusted email, phone, PIN, gender | 201 |
+| POST | `/auth/login` | Login with email+password or phone+PIN | 200 |
+| POST | `/auth/refresh` | Rotate refresh token | 200 |
+| POST | `/auth/logout` | Revoke refresh token | 200 |
+| POST | `/auth/forgot-password` | Send OTP to email | 200 |
+| POST | `/auth/reset-password` | Verify OTP + set new password | 200 |
+| POST | `/auth/forgot-pin` | Send OTP to registered email | 200 |
+| POST | `/auth/reset-pin` | Verify OTP + set new PIN | 200 |
 
-### USER role
+### User (authenticated)
 
-| Method | Path | Description | Response |
+| Method | Path | Description | Status |
 |---|---|---|---|
-| GET | `/users/me` | Get own profile | 200 + UserProfileResponse |
-| PUT | `/users/me` | Update name and phone | 200 + UserProfileResponse |
-| POST | `/users/me/kyc` | Submit KYC document | 202 |
-| POST | `/users/me/pin` | Set transaction PIN | 204 |
-| GET | `/wallets/me` | Get wallet with computed balance | 200 + WalletResponse |
-| POST | `/wallets/deposit` | Deposit funds | 200 + WalletResponse |
-| GET | `/wallets/me/ledger-entries` | Paginated ledger history | 200 + Page |
-| POST | `/transfers` | Initiate P2P transfer | 200 + TransferResponse |
-| GET | `/transfers` | Own transfer history | 200 + Page |
-| GET | `/transfers/{id}` | Single transfer detail | 200 + TransferResponse |
-| GET | `/statements/me` | List own statements | 200 + List |
-| POST | `/statements/me/generate` | Generate statement for month/year | 200 + StatementResponse |
-| GET | `/statements/{year}/{month}` | Download specific statement | 200 + StatementResponse |
+| GET | `/users/me` | Get own profile | 200 |
+| PUT | `/users/me/password` | Change password | 200 |
+| PUT | `/users/me/pin` | Change PIN | 200 |
+| POST | `/users/me/kyc` | Submit KYC details | 201 |
+| GET | `/users/me/kyc` | Get own KYC status | 200 |
+| POST | `/users/me/profile-photo` | Upload profile photo (multipart, max 5MB) | 200 |
+| POST | `/users/me/kyc/document-photo` | Upload document photo (multipart, max 5MB) | 200 |
 
-### ADMIN role
+### Wallet (authenticated)
 
-| Method | Path | Description | Response |
+| Method | Path | Description | Status |
 |---|---|---|---|
-| GET | `/admin/users` | All users paginated | 200 + Page |
-| PUT | `/admin/users/{id}/lock` | Toggle account lock | 204 |
-| PUT | `/admin/users/{id}/kyc-status` | Set VERIFIED or REJECTED | 204 |
-| PUT | `/admin/wallets/{id}/freeze` | Toggle wallet freeze | 200 + WalletResponse |
-| PUT | `/admin/transfers/{id}/reversal` | Reverse completed transfer | 200 + TransferResponse |
-| GET | `/admin/statements/{userId}` | View any user's statements | 200 + List |
+| GET | `/wallets/me` | Get wallet with computed balance | 200 |
+| POST | `/wallets/deposit` | Deposit funds | 200 |
 
-### COMPLIANCE_OFFICER role
+### Transfers (authenticated)
 
-| Method | Path | Description | Response |
+| Method | Path | Description | Status |
 |---|---|---|---|
-| GET | `/compliance/audit-logs` | All audit events paginated | 200 + Page |
-| GET | `/compliance/flagged-accounts` | Fraud-flagged accounts | 200 + List |
+| POST | `/transfers/lookup` | Lookup receiver by phone or email | 200 |
+| POST | `/transfers` | Execute transfer — returns full receipt | 201 |
+| GET | `/transfers/me` | Own transfer history (paginated) | 200 |
+| GET | `/transfers/{id}` | Single transfer by ID | 200 |
+
+### Admin (ADMIN role)
+
+| Method | Path | Description | Status |
+|---|---|---|---|
+| GET | `/admin/transfers` | All transfers paginated | 200 |
+| POST | `/admin/transfers/{id}/reverse` | Reverse a completed transfer | 200 |
+| GET | `/admin/kyc/pending` | Pending KYC list paginated | 200 |
+| GET | `/admin/kyc/{userId}` | Get KYC for a user | 200 |
+| PUT | `/admin/kyc/{userId}/review` | Approve or reject KYC | 200 |
 
 ---
 
-## 🔄 Transfer Flow
+## 🔄 Transfer Engine — Step Order
 
-The entire `TransferService.executeTransfer()` method is wrapped in `@Transactional`. Any failure at any step rolls back all database changes.
+`TransferService.executeTransfer()` always follows this exact sequence. Steps never reorder.
 
-1. **Idempotency check** — if `idempotency_key` already exists, return original result immediately
-2. **Self-transfer guard** — resolve wallets, throw `SelfTransferException` (400) if IDs match. Must be before PIN check — never waste a PIN attempt on a structurally invalid request
-3. **Account status check** — if sender `status != ACTIVE` throw `AccountLockedException` (423)
-4. **PIN verification** — `BCrypt.matches()`. On failure increment `pin_attempts`. If `>= 3` set `status = LOCKED`
-5. **Balance check** — `LedgerService.computeBalance()`. If `balance < amount` throw `InsufficientFundsException` (400)
-6. **Daily limit check** — `TransferLimitService`. If `sum + amount > NPR 100,000` throw `DailyLimitExceededException` (400)
-7. **Persist Transfer** — status `PENDING`
-8. **Create ledger entry** — `LedgerService.createEntryPair()`. Single row carrying debit and credit sides
-9. **Mark Transfer COMPLETED** — set `completed_at`, write audit log, return `TransferResponse`
+1. **Idempotency check** — return existing if duplicate key
+2. **Self-transfer guard** — resolve wallets, throw 400 if IDs match. Before PIN check — never waste a PIN attempt on a structurally invalid request
+3. **Account status check** — throw 423 if sender not ACTIVE
+4. **PIN verification** — BCrypt match. On failure increment `failed_login_attempts`. If `>= 3` lock account for 30 minutes
+5. **Balance check** — `LedgerService.computeBalance()`. Throw 400 if insufficient
+6. **Daily limit check** — NPR 100,000 per day, NPR 25,000 per transaction
+7. **Persist Transfer** — status PENDING
+8. **Create ledger entries** — `LedgerService.createEntryPair()`. Two rows, same idempotency key
+9. **Mark Transfer COMPLETED** — set `completed_at`, generate `transactionCode`, write audit log, return receipt
 
 ---
 
 ## 🔒 Security
 
-### JWT
-- Secret from `${JWT_SECRET}` env var — minimum 256-bit, base64-encoded, never hardcoded
-- Access token expiry: 900,000ms (15 minutes)
-- Refresh token expiry: 604,800,000ms (7 days)
-- Raw refresh token is a UUID string. Only SHA-256 hash stored in DB
-- On `/auth/refresh`: validate hash, delete old row, insert new row (rotation)
-- On `/auth/logout`: set `revoked = true`
+### Authentication
+- **Password** — BCrypt strength 12, `passwordEncoder` bean
+- **PIN** — BCrypt strength 12, separate `pinEncoder` bean via `EncoderConfig`
+- **JWT access token** — 15 minutes, HS256, secret from `${JWT_SECRET}` env var — never hardcoded
+- **Refresh token** — UUID stored as SHA-256 hash, 7 days, rotated on every use
 
-### PIN
-- BCrypt strength 12. Never stored plaintext. Never logged.
-- Account locks after `MAX_PIN_ATTEMPTS = 3` failures
-- Requires admin intervention to unlock
+### Lockout
+- 3 failed login or PIN attempts → account locked for 30 minutes
+- Auto-unlocks when `account_locked_until` expires
+- Successful login resets counter and updates `last_login_at`
 
-### Rate limiting
-- Transfers: 5 requests per 60 seconds per user (by email)
-- Login: 10 requests per 60 seconds per IP
-- Returns HTTP 429 with `Retry-After: 60` header
+### OTP
+- 6-digit secure random, 5-minute expiry, single-use
+- Previous OTPs invalidated on new request
 
-### HTTPS
-- `requiresChannel()` reads `X-Forwarded-Proto` header from reverse proxy
-- HSTS with `includeSubDomains=true`, `maxAgeInSeconds=31536000`
+### Rate Limiting
+- Transfers: 5 per 60 seconds per user
+- Login: 10 per 60 seconds per IP
+- Returns 429 with `Retry-After` header
+
+### HTTPS + HSTS
+- Enforced via `X-Forwarded-Proto` from reverse proxy
+- HSTS: `includeSubDomains=true`, `maxAgeInSeconds=31536000`
 
 ### RBAC
-- Route-level: `/admin/**` → ADMIN only, `/compliance/**` → COMPLIANCE_OFFICER only
-- Filter chain order: HTTPS enforcement → rate limit → JWT authentication → authorization
+- Route-level: `/admin/**` → ADMIN, `/compliance/**` → COMPLIANCE_OFFICER
+- Filter chain: HTTPS → rate limit → JWT → authorization
 
 ---
 
-## ✅ Prerequisites
+## 📊 HTTP Status Reference
 
-- Java 21+
-- Maven 3.9+
-- Docker and Docker Compose
-- PostgreSQL 17 (for local dev without Docker)
-
----
-
-## 🔧 Environment Variables
-
-| Variable | Example | Description |
-|---|---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/digital_wallet_db` | Full JDBC connection string |
-| `DB_USERNAME` | `postgres` | Database user |
-| `DB_PASSWORD` | `strongpassword` | Database password — never commit |
-| `JWT_SECRET` | `K7x2mQ9vN3pL8wR...==` | Base64-encoded 256-bit key for HS256 signing |
-| `REDIS_HOST` | `redis` | Only required when Redis Compose profile is active |
-
-Generate a secure JWT secret:
-```powershell
-$bytes = New-Object byte[] 32
-[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
-[Convert]::ToBase64String($bytes)
-```
+| Code | When used |
+|---|---|
+| 200 | Successful GET, login, token refresh, deposit |
+| 201 | Register, transfer completed, KYC submitted |
+| 400 | Insufficient funds, self-transfer, daily limit, validation failure, invalid OTP |
+| 401 | Missing, expired, or invalid JWT. Bad credentials — message includes attempts remaining |
+| 404 | User, wallet, or transfer not found |
+| 409 | Duplicate idempotency key, email/phone already registered, optimistic lock failure |
+| 423 | Account locked — message includes locked until timestamp |
+| 429 | Rate limit exceeded — includes `Retry-After` header |
+| 500 | Unhandled exception — stack trace never exposed |
 
 ---
 
 ## 🚀 Local Setup
 
-**1. Clone the repository**
+### Prerequisites
+- Java 21+
+- PostgreSQL 17
+- Maven 3.9+
+
+### Steps
+
 ```bash
-git clone https://github.com/yunesh/digital-wallet-api.git
+# 1. Clone
+git clone https://github.com/yuneshbyte01/digital-wallet-api.git
 cd digital-wallet-api
-```
 
-**2. Create `.env` file**
-```env
-DB_URL=jdbc:postgresql://localhost:5432/digital_wallet_db
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-JWT_SECRET=your_base64_secret
-```
+# 2. Create local database
+psql -U postgres -c "CREATE DATABASE digital_wallet_db;"
 
-**3. Start PostgreSQL**
-```bash
-docker run --name wallet-db \
-  -e POSTGRES_DB=digital_wallet_db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=your_password \
-  -p 5432:5432 \
-  -d postgres:17-alpine
-```
+# 3. Create .env
+cp .env.example .env
+# fill in DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET
 
-**4. Run the application**
-```bash
+# 4. Run
 mvn spring-boot:run
 ```
 
-Flyway runs all 8 migrations automatically on startup.
+Flyway runs all 14 migrations automatically on startup.
 
-**5. Insert system wallet** (required for deposits)
-```sql
-INSERT INTO wallets (id, user_id, currency, status, version)
-VALUES (
-    '00000000-0000-0000-0000-000000000000',
-    (SELECT id FROM users WHERE email = 'admin@example.com'),
-    'SYSTEM', 'ACTIVE', 0
-);
+**Swagger UI:** `http://localhost:8080/swagger-ui/index.html`
+
+### Generate JWT secret
+
+```powershell
+# Windows PowerShell
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
 ```
 
-**6. Insert admin user**
+```bash
+# Linux / macOS
+openssl rand -base64 32
+```
+
+### Seed admin user
+
+Register via API then promote in SQL:
+
 ```sql
-INSERT INTO users (full_name, email, phone, password_hash, role, status, kyc_status)
-VALUES (
-    'Admin User', 'admin@example.com', '+9779800000001',
-    '$2a$12$...bcrypt_hash_of_your_password...',
-    'ADMIN', 'ACTIVE', 'VERIFIED'
-);
+UPDATE users SET role = 'ADMIN' WHERE email = 'admin@gmail.com';
+
+INSERT INTO wallets (id, user_id, currency, status, version)
+VALUES ('00000000-0000-0000-0000-000000000000',
+    (SELECT id FROM users WHERE email = 'admin@gmail.com'),
+    'SYSTEM', 'ACTIVE', 0);
 ```
 
 ---
 
-## 🐳 Docker
+## 🔧 Environment Variables
 
-**Standard setup**
-```bash
-docker-compose up --build
-```
+| Variable | Purpose |
+|---|---|
+| `DB_URL` | JDBC connection string |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password — never commit |
+| `JWT_SECRET` | Base64-encoded 256-bit signing key |
+| `SPRING_PROFILES_ACTIVE` | `dev` or `prod` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins |
+| `SUPABASE_URL` | Supabase project URL (prod only) |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key (prod only) |
+| `SUPABASE_BUCKET` | Storage bucket name (prod only) |
 
-**With Redis** (for multi-instance Bucket4j rate limiting)
-```bash
-docker-compose --profile redis up --build
-```
+---
 
-Required env vars for Docker:
-```bash
-export DB_PASSWORD=strongpassword
-export JWT_SECRET=your_base64_secret
-```
+## 🗂 File Storage
+
+| Profile | Implementation | Location |
+|---|---|---|
+| `dev` | `LocalStorageService` | `uploads/` folder on device, served at `/uploads/` |
+| `prod` | `SupabaseStorageService` | Supabase Storage bucket via REST API |
+
+- Max file size: 5MB
+- Allowed types: JPEG, PNG, PDF
+- Profile photo stored on `users.profile_picture_url`
+- KYC document photo stored on `kyc_details.document_picture_path`
 
 ---
 
 ## 🧪 Testing
 
-Two-layer test strategy — fast unit tests for business logic, real-database integration tests via Testcontainers.
-
 ```bash
-# Unit tests only (no Docker required)
-mvn test -Dtest="*ServiceTest"
-
 # All tests (Docker required for Testcontainers)
 mvn test
+
+# Unit tests only
+mvn test -Dtest="*ServiceTest"
 ```
 
-| Layer | Target | Tool |
+| Layer | Tool | Target |
 |---|---|---|
-| Service layer (unit) | > 90% line coverage | JUnit 5 + Mockito |
-| Controller layer (integration) | > 80% endpoint coverage | MockMvc + Testcontainers |
-| Repository layer | Covered by integration tests | — |
+| Service (unit) | JUnit 5 + Mockito | > 90% coverage |
+| Controller (integration) | MockMvc + Testcontainers | > 80% coverage |
 
-> No H2 anywhere. Integration tests use a real PostgreSQL 17 container via Testcontainers. `AbstractIntegrationTest` starts a shared container once per test run — all test classes extend it.
-
----
-
-## 📖 API Documentation
-
-Swagger UI is available at:
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
-Configure JWT bearer authentication in Swagger UI:
-1. Click **Authorize**
-2. Enter `Bearer your_access_token`
-3. Click **Authorize**
+> No H2 anywhere. Integration tests use real PostgreSQL 17 via Testcontainers. All test classes extend `AbstractIntegrationTest` which starts a shared container once per test run.
 
 ---
 
-## 📊 HTTP Status Code Reference
+## 🚢 Deployment
 
-| Code | When used |
-|---|---|
-| 200 | GET, PUT success. Login, token refresh. |
-| 201 | POST /auth/register, POST /wallets/deposit |
-| 204 | Logout, lock/unlock, PIN set |
-| 400 | Insufficient funds, self-transfer, daily limit, validation failure |
-| 401 | Missing, expired, or invalid JWT |
-| 403 | Valid JWT but insufficient role |
-| 404 | Transfer, user, or wallet not found |
-| 409 | Duplicate idempotency key, optimistic lock failure |
-| 423 | Account locked after three failed PIN attempts |
-| 429 | Rate limit exceeded — includes `Retry-After` header |
-| 500 | Unhandled exception — stack traces never exposed |
+| Service | Provider | Notes |
+|---|---|---|
+| Application | Render (Docker) | Free tier, auto-deploys on push to main |
+| Database | Supabase PostgreSQL | Session pooler, port 5432, SSL required |
+| File storage | Supabase Storage | Private bucket, accessed via service role key |
 
 ---
 
 ## 👤 Author
 
-**Yunesh Timsina**
-yuneshtimsina@gmail.com
+**Yunesh Timsina**  
+GitHub: [@yuneshbyte01](https://github.com/yuneshbyte01)
 
 ---
 
-*Digital Wallet & Money Transfer API — v1.0.0 — March 2026*
+*Digital Wallet & Money Transfer API — v1.0.0 — April 2026*
